@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>AssetTrack — Admin Portal</title>
+<title>AssetTrackPro — Admin Portal</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════════════════════════
-   ASSETTRACK PRO — ADMIN PORTAL
+   ASSETTRACKPRO — ADMIN PORTAL
    THEME : Light sky-blue (default) · Dark ocean (toggle)
    FONTS : Century Gothic/Nunito → headings  (900 bold)
            Arial/Helvetica        → body+data (700 bold)
@@ -268,7 +268,7 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
 
 <!-- LOGIN -->
 <div id="login-screen">
-  <div class="ls-logo">Asset<em>Track</em></div>
+  <div class="ls-logo">AssetTrack<em>Pro</em></div>
   <div class="ls-badge">ADMIN PORTAL</div>
   <div class="ls-field">
     <div class="ls-lbl">Admin Username</div>
@@ -289,7 +289,7 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
   <!-- SIDEBAR -->
   <div class="sidebar" id="sidebar">
     <div class="sb-brand">
-      <div class="sb-logo">Asset<em>Track</em></div>
+      <div class="sb-logo">AssetTrack<em>Pro</em></div>
       <div style="display:flex;align-items:center;gap:6px;margin-top:5px;">
         <div class="sb-badge">ADMIN PORTAL</div>
         <div id="conn-badge" style="font-size:9px;padding:2px 8px;border-radius:4px;font-weight:700;letter-spacing:.5px;background:rgba(255,72,88,.15);color:var(--acc3);border:1px solid rgba(255,72,88,.25);">⬤ DEMO</div>
@@ -519,7 +519,7 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
     <!-- ══ SYSTEM SETUP ══ -->
     <div class="panel" id="p-setup">
       <div class="panel-hdr">
-        <div><div class="panel-ttl">System Setup</div><div class="panel-sub">Configure AssetTrack for your organisation</div></div>
+        <div><div class="panel-ttl">System Setup</div><div class="panel-sub">Configure AssetTrackPro for your organisation</div></div>
       </div>
       <div class="card">
         <div class="card-ttl">Organisation Profile</div>
@@ -932,10 +932,10 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
     <!-- ══ ERP SYNC ══ -->
     <div class="panel" id="p-erp">
       <div class="panel-hdr">
-        <div><div class="panel-ttl">ERP Sync</div><div class="panel-sub">Connect AssetTrack to your ERP system</div></div>
+        <div><div class="panel-ttl">ERP Sync</div><div class="panel-sub">Connect AssetTrackPro to your ERP system</div></div>
       </div>
       <div class="card" style="font-size:12px;color:var(--text2);line-height:1.8;padding:14px 18px;">
-        ⚡ Select your ERP system below. AssetTrack syncs asset data bidirectionally via REST API. Field users never see or configure this.
+        ⚡ Select your ERP system below. AssetTrackPro syncs asset data bidirectionally via REST API. Field users never see or configure this.
       </div>
       <div class="erp-grid">
         <div class="erp-card" onclick="selErp('sheets')" style="border-color:rgba(52,168,83,.3);background:rgba(52,168,83,.04);">
@@ -999,8 +999,8 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
               <div class="fg"><div class="fl">Sync Direction</div>
                 <select class="fi" id="gs-dir">
                   <option value="both">Both — Push &amp; Pull</option>
-                  <option value="push">Push only (AssetTrack → Sheets)</option>
-                  <option value="pull">Pull only (Sheets → AssetTrack)</option>
+                  <option value="push">Push only (AssetTrackPro → Sheets)</option>
+                  <option value="pull">Pull only (Sheets → AssetTrackPro)</option>
                 </select>
               </div>
             </div>
@@ -1009,7 +1009,7 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
 
         <!-- Step 3: Column Mapping -->
         <div class="setup-sect" style="margin-bottom:14px;">
-          <div class="setup-hdr"><div class="setup-hdr-ttl">Step 3 — Map your sheet columns to AssetTrack fields</div></div>
+          <div class="setup-hdr"><div class="setup-hdr-ttl">Step 3 — Map your sheet columns to AssetTrackPro fields</div></div>
           <div class="setup-body">
             <div style="font-size:11px;color:var(--text2);margin-bottom:12px;">Enter the exact column header from your Google Sheet for each field below.</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -1048,7 +1048,7 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
           <div class="setup-hdr"><div class="setup-hdr-ttl">Step 5 — New assets not in FAR</div></div>
           <div class="setup-body">
             <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.7;">
-              When AssetTrack has assets that don't exist in the sheet (registered in the field but not yet in FAR), what should happen on Push?
+              When AssetTrackPro has assets that don't exist in the sheet (registered in the field but not yet in FAR), what should happen on Push?
             </div>
             <select class="fi" id="gs-new-asset-action" style="margin-bottom:10px;">
               <option value="append">Append as new row — add to FAR automatically</option>
@@ -1058,7 +1058,7 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
             <div style="font-size:11px;color:var(--text3);line-height:1.7;">
               <strong style="color:var(--acc2);">Append</strong> — good for live deployments where field data should flow directly into the FAR.<br>
               <strong style="color:var(--acc2);">Flag only</strong> — good for controlled FAR environments where finance must approve new additions.<br>
-              <strong style="color:var(--acc2);">Skip</strong> — good for audit-only mode where the FAR is master and AssetTrack only updates existing records.
+              <strong style="color:var(--acc2);">Skip</strong> — good for audit-only mode where the FAR is master and AssetTrackPro only updates existing records.
             </div>
           </div>
         </div>
@@ -1068,7 +1068,7 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
           <button class="act-btn btn-p" onclick="testSheetsConnection()">🔌 Test Connection</button>
           <button class="act-btn btn-g" onclick="pushToSheets()">⬆ Push → Sheets</button>
           <button class="act-btn btn-g" style="background:var(--g-teal);" onclick="pushAuditResultsToSheets()">📋 Push Audit Results</button>
-          <button class="act-btn btn-s" onclick="pullFromSheets()">⬇ Pull FAR → AssetTrack</button>
+          <button class="act-btn btn-s" onclick="pullFromSheets()">⬇ Pull FAR → AssetTrackPro</button>
           <button class="act-btn btn-s" onclick="saveSheetsConfig()">💾 Save Config</button>
           <button class="act-btn btn-d" onclick="resetSheetsSync()">↺ Reset</button>
         </div>
@@ -1151,7 +1151,7 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
         <div class="card-ttl">Step 2 — Run This SQL in Supabase SQL Editor</div>
         <p style="font-size:11px;color:var(--text2);line-height:1.7;margin-bottom:10px;">Open your Supabase project → SQL Editor → New Query → paste and run:</p>
         <button class="copy-btn" onclick="copySQL()" style="margin-bottom:8px;">📋 Copy SQL</button>
-        <div class="sql-block" id="sql-block">-- AssetTrack Pro — Multi-Company Database Schema
+        <div class="sql-block" id="sql-block">-- AssetTrackPro — Multi-Company Database Schema
 -- Run this entire block in Supabase SQL Editor
 
 -- 1. COMPANIES TABLE
@@ -2245,7 +2245,7 @@ function downloadTemplate(type){
     ws['!cols']=csvRows[0].map(()=>({wch:32}));
     XLSX.utils.book_append_sheet(wb,'Data',ws);
     const instrRows=[
-      ['ASSETTRACK PRO — Import Template: '+type.toUpperCase()],[''],
+      ['ASSETTRACKPRO — Import Template: '+type.toUpperCase()],[''],
       ['Column headers are in Row 1 of the Data sheet.'],
       ['Add your data starting from Row 2.'],[''],
       ['RULES:'],
@@ -3402,13 +3402,13 @@ function exportPhotoReport(){
     +'</head>'
     +'<body style="font-family:sans-serif;background:#f4f6fa;padding:20px;max-width:900px;margin:0 auto;">'
     +'<div style="background:#0a1e38;color:#fff;padding:24px 28px;border-radius:14px;margin-bottom:22px;display:flex;justify-content:space-between;">'
-    +'<div><div style="font-size:24px;font-weight:800;">AssetTrack Pro</div>'
+    +'<div><div style="font-size:24px;font-weight:800;">AssetTrackPro</div>'
     +'<div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:3px;">Photo Asset Register &middot; '+stamp+'</div></div>'
     +'<div style="text-align:right;"><div style="font-size:24px;font-weight:800;color:#00c8a0;">'+data.length+'</div>'
     +'<div style="font-size:11px;color:rgba(255,255,255,.4);">Total Assets</div></div>'
     +'</div>'
     +cards
-    +'<div style="text-align:center;font-size:11px;color:#aaa;margin-top:20px;">AssetTrack Pro &middot; Admin Photo Report &middot; '+stamp+'</div>'
+    +'<div style="text-align:center;font-size:11px;color:#aaa;margin-top:20px;">AssetTrackPro &middot; Admin Photo Report &middot; '+stamp+'</div>'
     +'<'+'/body><'+'/html>';
   const blob=new Blob([html],{type:'text/html'});
   const url=URL.createObjectURL(blob);
@@ -3450,7 +3450,7 @@ function exportFullPDF(){
       @media print{@page{margin:15mm;}}
     </style></head>
     <body>
-    <h1>AssetTrack Pro — Asset Register</h1>
+    <h1>AssetTrackPro — Asset Register</h1>
     <div class="sub">${coName} · ${stamp} · ${data.length} assets</div>
     <table><thead><tr>
       <th>Barcode</th><th>Asset Name</th><th>Category</th><th>Location</th>
@@ -3478,13 +3478,13 @@ function exportWhatsApp(){
   const catLines=Object.entries(cats).sort((a,b)=>b[1]-a[1])
     .map(([c,n])=>`• ${c}: ${n} asset${n!==1?'s':''}`)
     .join('\n');
-  const msg=`📊 *AssetTrack Pro — ${coName}*\n`
+  const msg=`📊 *AssetTrackPro — ${coName}*\n`
     +`📅 ${stamp}\n\n`
     +`*SUMMARY*\n`
     +`Total Assets: *${data.length}*\n`
     +`Active: ${active} | Audited: ${audited} (${data.length?Math.round(audited/data.length*100):0}%)\n`
     +`*BY CATEGORY*\n${catLines}\n\n`
-    +`_Generated by AssetTrack Pro_`;
+    +`_Generated by AssetTrackPro_`;
   const encoded=encodeURIComponent(msg);
   window.open('https://wa.me/?text='+encoded,'_blank');
   toast('Opening WhatsApp…','ok');
@@ -3788,7 +3788,7 @@ function selErp(id){
 // GOOGLE SHEETS FAR SYNC
 // ══════════════════════════════════════════════════════
 const GS_SCRIPT_CODE=`// ═══════════════════════════════════════════════════════════
-// AssetTrack Pro — Google Sheets FAR Sync Script v2
+// AssetTrackPro — Google Sheets FAR Sync Script v2
 // Paste into Extensions → Apps Script → Deploy as Web App
 // Execute as: Me | Who has access: Anyone
 // ═══════════════════════════════════════════════════════════
@@ -3799,7 +3799,7 @@ const STD_HEADERS = [
   'Asset Code','Asset Name','Category','Sub-Category',
   'Location','Department','Status','Condition',
   'Custodian','Serial No.','Registered By',
-  'Date Registered','Last Audit Date','Notes','AssetTrack ID'
+  'Date Registered','Last Audit Date','Notes','AssetTrackPro ID'
 ];
 
 // ── GET: test connection or pull records ──────────────────
@@ -3828,7 +3828,7 @@ function doGet(e) {
   return respond({ rows, headers, total: rows.length });
 }
 
-// ── POST: push assets from AssetTrack into the sheet ──────
+// ── POST: push assets from AssetTrackPro into the sheet ──────
 function doPost(e) {
   try {
     const body    = e.postData ? e.postData.contents : '{}';
@@ -3976,7 +3976,7 @@ function buildRow(headers, asset) {
     'Date Registered': fmt(asset.created_at),
     'Last Audit Date': fmt(asset.last_audit_date),
     'Notes'          : asset.notes         || '',
-    'AssetTrack ID'  : asset.id            || ''
+    'AssetTrackPro ID'  : asset.id            || ''
   };
   return headers.map(function(h) { return map[h] !== undefined ? map[h] : ''; });
 }
