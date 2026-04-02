@@ -1449,6 +1449,7 @@ let auditLog=[];
 let allCompanies=[];          // all company records
 let activeCompanyId=null;     // currently selected workspace
 let activeCompany=null;       // full company object
+let blockedModulePanels=[];   // panels blocked by tenant module toggles (rebuilt on login/workspace switch)
 
 // ── Industry taxonomy templates ──
 // Each industry gets its own starting taxonomy when a new company is created
@@ -1608,6 +1609,8 @@ async function switchWorkspace(companyId){
     gsLog(`Workspace switched to: ${activeCompany?activeCompany.name:companyId} — config reloaded`,'var(--acc2)');
   }
   toast('Workspace: '+(activeCompany?activeCompany.name:'All'),'info');
+  // Re-apply module restrictions for the newly active company
+  applyModuleRestrictions();
   // Re-render current panel
   const onPanel=document.querySelector('.panel.on');
   if(onPanel)show(onPanel.id.replace('p-',''));
@@ -2515,6 +2518,52 @@ function applyRoleNavRestrictions(){
   // Add Company button: hide for sub-admin
   const addCoBtn=document.querySelector('[onclick="openAddCompany()"]');
   if(addCoBtn) addCoBtn.style.display=isSubAdmin()?'none':'';
+  // Apply tenant module restrictions on top of role restrictions
+  applyModuleRestrictions();
+}
+
+// ── Module-level nav enforcement (per tenant, set by Super Owner) ────────────
+// Maps module keys (as stored in companies.modules) → panel name + nav selector
+const MODULE_PANEL_MAP={
+  erp_sync: { panel:'erp',      nav:`[onclick="show('erp')"]`      },
+  db_setup: { panel:'database', nav:`[onclick="show('database')"]` },
+  // 'integration' has no dedicated panel yet — reserved for future use
+};
+
+function applyModuleRestrictions(){
+  // Reset all module-controlled nav items to visible first
+  // (ensures a workspace switch from restricted → unrestricted company shows them again)
+  Object.values(MODULE_PANEL_MAP).forEach(({nav})=>{
+    const el=document.querySelector(nav);
+    if(el) el.style.display='';
+  });
+  blockedModulePanels=[];
+
+  // Super Owner is exempt — they manage modules, must always see everything
+  if(currentUser&&currentUser.role==='super_owner') return;
+
+  // Sub-Admin's panels are already hidden by data-admin-only — no need to double-process
+  // but we still build blockedModulePanels so show() blocks direct URL/call attempts
+  const co=activeCompany||allCompanies.find(c=>c.id===activeCompanyId)||null;
+  if(!co) return;  // no company context yet — restrictions applied once workspace loads
+
+  const mods=co.modules||{};
+  Object.entries(MODULE_PANEL_MAP).forEach(([key,{panel,nav}])=>{
+    // Default: enabled (modules[key] is undefined means full access)
+    const enabled=mods[key]!==false;
+    if(!enabled){
+      blockedModulePanels.push(panel);
+      const el=document.querySelector(nav);
+      if(el) el.style.display='none';
+    }
+  });
+
+  // If user is currently viewing a now-blocked panel, redirect to dashboard
+  const onPanel=document.querySelector('.panel.on');
+  if(onPanel){
+    const current=onPanel.id.replace('p-','');
+    if(blockedModulePanels.includes(current)) show('dashboard');
+  }
 }
 
 function getLocalAssets(){
@@ -2530,6 +2579,9 @@ function getLocalAssets(){
 function show(name){
   if(typeof currentUser!=='undefined'&&currentUser&&currentUser.role==='sub_admin'&&SUB_ADMIN_BLOCKED.includes(name)){
     toast('Access restricted for Sub-Admin role','err');return;
+  }
+  if(blockedModulePanels.includes(name)){
+    toast('This module is not enabled for your workspace','err');return;
   }
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('on'));
