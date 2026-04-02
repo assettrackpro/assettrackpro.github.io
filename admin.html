@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>AssetTrackPro — Admin Portal</title>
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════════════════════════
    ASSETTRACKPRO — ADMIN PORTAL
@@ -35,7 +35,7 @@
   --g-violet:linear-gradient(135deg,#a78bfa,#6d5bde);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html,body{height:100%;font-family:var(--fb);font-weight:600;background:var(--bg);
+html,body{height:100%;font-family:var(--fb);font-weight:400;background:var(--bg);
   color:var(--text);transition:background .25s,color .25s;-webkit-font-smoothing:antialiased;}
 input,select,textarea,button{font-family:var(--fb);font-weight:700;}
 .app{display:flex;height:100dvh;overflow:hidden;}
@@ -60,9 +60,9 @@ input,select,textarea,button{font-family:var(--fb);font-weight:700;}
   box-shadow:0 5px 20px rgba(0,119,204,.35);transition:transform .15s;letter-spacing:.3px;}
 .ls-btn:active{transform:scale(.97);}
 .ls-err{font-size:12px;color:var(--acc3);text-align:center;margin-top:10px;min-height:18px;max-width:380px;font-weight:700;}
-.ls-link{font-size:11px;color:var(--text3);margin-top:20px;font-weight:600;}.ls-link a{color:var(--acc);}
-.ls-version{font-size:10px;color:var(--text3);margin-top:8px;letter-spacing:.6px;font-weight:600;opacity:.7;}
-.sb-version{font-size:9px;color:var(--text3);text-align:center;padding:6px 0 2px;letter-spacing:.5px;font-weight:600;opacity:.75;}
+.ls-link{font-size:11px;color:var(--text3);margin-top:20px;font-weight:400;}.ls-link a{color:var(--acc);}
+.ls-version{font-size:10px;color:var(--text3);margin-top:8px;letter-spacing:.6px;font-weight:400;opacity:.7;}
+.sb-version{font-size:9px;color:var(--text3);text-align:center;padding:6px 0 2px;letter-spacing:.5px;font-weight:400;opacity:.75;}
 /* ── SIDEBAR ── */
 .sidebar{width:224px;flex-shrink:0;background:var(--surf);border-right:2px solid var(--border);
   display:flex;flex-direction:column;overflow:hidden;box-shadow:3px 0 16px rgba(0,80,160,.1);}
@@ -91,7 +91,7 @@ input,select,textarea,button{font-family:var(--fb);font-weight:700;}
 .panel{display:none;padding:26px 30px 60px;}.panel.on{display:block;}
 .panel-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
 .panel-ttl{font-family:var(--fh);font-size:24px;font-weight:900;color:var(--text);letter-spacing:-.4px;}
-.panel-sub{font-size:12px;color:var(--text2);margin-top:3px;font-weight:600;}
+.panel-sub{font-size:12px;color:var(--text2);margin-top:3px;font-weight:400;}
 /* ── BUTTONS ── */
 .act-btn{padding:10px 17px;border-radius:10px;border:none;font-family:var(--fb);font-size:12px;font-weight:700;cursor:pointer;transition:all .18s;}
 .act-btn:active{transform:scale(.95);}
@@ -113,11 +113,11 @@ input,select,textarea,button{font-family:var(--fb);font-weight:700;}
 .ki{font-size:20px;position:absolute;top:14px;right:14px;opacity:.25;}
 .kl{font-family:var(--fh);font-size:11px;color:var(--text2);letter-spacing:.6px;text-transform:uppercase;font-weight:800;}
 .kv{font-family:var(--fh);font-size:30px;font-weight:900;color:var(--text);line-height:1;margin:6px 0 3px;}
-.ks{font-size:11px;color:var(--text3);font-weight:700;}
+.ks{font-size:11px;color:var(--text3);font-weight:400;}
 /* ── CARDS / TABLES ── */
 .card{background:var(--surf);border:2px solid var(--border);border-radius:var(--r);padding:20px 22px;margin-bottom:16px;}
 .card-ttl{font-family:var(--fh);font-size:16px;font-weight:900;color:var(--text);margin-bottom:16px;letter-spacing:-.2px;}
-.card-ttl span{font-size:12px;font-family:var(--fb);color:var(--text2);font-weight:600;margin-left:8px;}
+.card-ttl span{font-size:12px;font-family:var(--fb);color:var(--text2);font-weight:400;margin-left:8px;}
 .tbl{width:100%;border-collapse:collapse;}
 .tbl th{font-family:var(--fh);font-size:11px;color:var(--text2);letter-spacing:.6px;text-transform:uppercase;font-weight:900;padding:10px 12px;border-bottom:2px solid var(--border);text-align:left;background:var(--surf2);}
 .tbl td{font-size:12px;color:var(--text);padding:11px 12px;border-bottom:1px solid var(--border);font-weight:700;vertical-align:middle;}
@@ -154,17 +154,17 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
 .user-card:hover{border-color:var(--acc);}
 .user-av{width:40px;height:40px;border-radius:50%;background:var(--g-blue);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
 .user-inf{flex:1;}.user-nm{font-family:var(--fh);font-size:13px;color:var(--text);font-weight:900;}
-.user-un{font-size:11px;color:var(--text2);margin-top:2px;font-weight:600;}.user-acts{display:flex;gap:7px;}
+.user-un{font-size:11px;color:var(--text2);margin-top:2px;font-weight:400;}.user-acts{display:flex;gap:7px;}
 /* ── REPORTS ── */
 .rpt-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
 .rpt-btn{background:var(--surf);border:2px solid var(--border);border-radius:var(--r);padding:18px 16px;cursor:pointer;display:flex;flex-direction:column;gap:8px;transition:all .18s;text-align:left;}
 .rpt-btn:hover{border-color:var(--acc);background:rgba(0,119,204,.04);}.rpt-btn:active{transform:scale(.97);}
-.rpt-i{font-size:26px;}.rpt-l{font-family:var(--fh);font-size:13px;color:var(--text);font-weight:900;}.rpt-s{font-size:11px;color:var(--text3);font-weight:600;}
+.rpt-i{font-size:26px;}.rpt-l{font-family:var(--fh);font-size:13px;color:var(--text);font-weight:900;}.rpt-s{font-size:11px;color:var(--text3);font-weight:400;}
 /* ── ERP ── */
 .erp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
 .erp-card{background:var(--surf2);border:2px solid var(--border);border-radius:var(--r-sm);padding:14px;cursor:pointer;transition:all .18s;}
 .erp-card.on{border-color:var(--acc5);background:rgba(110,62,196,.06);}
-.erp-ico{font-size:22px;margin-bottom:8px;}.erp-nm{font-family:var(--fh);font-size:12px;color:var(--text);font-weight:800;}.erp-st{font-size:11px;color:var(--text3);margin-top:2px;font-weight:600;}
+.erp-ico{font-size:22px;margin-bottom:8px;}.erp-nm{font-family:var(--fh);font-size:12px;color:var(--text);font-weight:800;}.erp-st{font-size:11px;color:var(--text3);margin-top:2px;font-weight:400;}
 .erp-cfg{background:var(--surf);border:2px solid var(--border);border-radius:var(--r);padding:18px;display:none;}.erp-cfg.show{display:block;}
 /* ── SQL BLOCK ── */
 .sql-block{background:#020c1a;border:2px solid var(--border);border-radius:10px;padding:14px;font-family:monospace;font-size:11px;color:#7ec8e0;line-height:1.8;overflow-x:auto;white-space:pre;margin-bottom:14px;}
