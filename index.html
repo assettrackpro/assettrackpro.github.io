@@ -1549,10 +1549,10 @@ async function saveAsset(){
     return;
   }
 
-  if(CONFIGURED){
+  if(CONFIGURED && navigator.onLine){
     try{
-      // Fix: use OR logic to catch both NULL company_id and matching company_id,
-      // rather than a strict company_id=eq. filter that misses NULL rows
+      // Online + configured: check Supabase for duplicates
+      // Use OR logic to catch both NULL company_id and matching company_id
       const companyId=currentUser.company_id||null;
       let query=`?barcode=eq.${encodeURIComponent(bc)}&select=id,name,company_id`;
       const existing=await sb.query('assets',query);
@@ -1570,20 +1570,27 @@ async function saveAsset(){
         }
       }
     }catch(e){
-      // Do NOT silently allow — warn the user and block the save
-      toast('⚠ Could not verify barcode — check connection and retry','err');
+      // Cloud check failed unexpectedly while supposedly online — log but do NOT block
+      // Asset will still be checked against localStorage below, and queued for sync
       logFieldErr('dupCheck',e.message,'barcode='+bc);
-      document.getElementById('reg-submit-btn').disabled=false;
-      return;
+      // Fall through to localStorage check
     }
-  } else {
-    // Demo / offline mode — check localStorage
+  }
+  // Offline (or demo) mode — check localStorage + pending queue as the source of truth
+  // This runs: (a) when offline regardless of CONFIGURED, (b) in demo mode, (c) as fallback after cloud error
+  {
     const allLocal=getLocalAssets();
+    const pending=JSON.parse(localStorage.getItem('atp_pending_sync')||'[]');
+    const allKnown=[...allLocal,...pending];
     const companyId=currentUser.company_id||null;
-    const dup=allLocal.find(a=>
+    const dup=allKnown.find(a=>
       a.barcode===bc&&(!companyId||!a.company_id||a.company_id===companyId)
     );
     if(dup){toast(`Barcode already registered: ${dup.name||dup.id}`,'err');document.getElementById('reg-submit-btn').disabled=false;return;}
+    // If offline, warn the user the cloud could not be verified — but allow save
+    if(CONFIGURED && !navigator.onLine){
+      toast('📴 Offline — saving locally. Cloud duplicate check skipped.','warn');
+    }
   }
 
   const fromAudit=!!document.getElementById('audit-reg-banner');
