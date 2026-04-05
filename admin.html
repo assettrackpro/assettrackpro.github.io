@@ -60,6 +60,26 @@ input,select,textarea,button{font-family:var(--fb);font-weight:700;}
   box-shadow:0 5px 20px rgba(0,119,204,.35);transition:transform .15s;letter-spacing:.3px;}
 .ls-btn:active{transform:scale(.97);}
 .ls-err{font-size:12px;color:var(--acc3);text-align:center;margin-top:10px;min-height:18px;max-width:380px;font-weight:700;}
+/* ── Tenant lockout screen ───────────────────────── */
+.lockout-overlay{position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;}
+.lockout-overlay.active{display:flex;}
+.lock-icon{font-size:56px;margin-bottom:14px;}
+.lock-title{font-family:var(--fh);font-size:24px;font-weight:900;color:var(--acc3);margin-bottom:6px;letter-spacing:-.3px;}
+.lock-company{font-family:var(--fh);font-size:15px;font-weight:800;color:var(--text);margin-bottom:12px;}
+.lock-msg{font-size:13px;color:var(--text2);max-width:330px;line-height:1.7;margin-bottom:24px;font-weight:400;}
+.lock-contact{background:rgba(214,48,64,.07);border:2px solid rgba(214,48,64,.22);border-radius:14px;padding:18px 26px;max-width:330px;width:100%;margin-bottom:22px;}
+.lock-contact-lbl{font-size:10px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:var(--acc3);margin-bottom:6px;}
+.lock-contact-val{font-family:var(--fh);font-size:15px;font-weight:900;color:var(--text);}
+.lock-footer{font-size:11px;color:var(--text3);margin-top:6px;}
+/* ── Expiry notification banner (Super Owner dashboard) */
+.so-expiry-banner{display:none;background:rgba(255,152,0,.09);border:2px solid rgba(255,152,0,.35);border-radius:12px;padding:14px 18px;margin-bottom:20px;}
+.so-expiry-banner-ttl{font-family:var(--fh);font-size:13px;font-weight:900;color:#c45c00;margin-bottom:8px;}
+.so-expiry-row{font-size:12px;color:var(--text);font-weight:700;padding:5px 0;border-bottom:1px solid rgba(255,152,0,.18);display:flex;justify-content:space-between;align-items:center;}
+.so-expiry-row:last-child{border-bottom:none;}
+.so-expiry-days{font-size:11px;font-weight:800;padding:2px 8px;border-radius:5px;background:rgba(255,152,0,.15);color:#c45c00;}
+.so-expiry-days.urgent{background:rgba(214,48,64,.12);color:var(--acc3);}
+/* ── In-app expiry warning strip (admin sidebar top) ── */
+.expiry-warn-strip{display:none;background:rgba(255,152,0,.12);border-bottom:2px solid rgba(255,152,0,.3);padding:8px 18px;font-size:11px;font-weight:800;color:#c45c00;text-align:center;letter-spacing:.2px;}
 .ls-link{font-size:11px;color:var(--text3);margin-top:20px;font-weight:400;}.ls-link a{color:var(--acc);}
 .ls-version{font-size:10px;color:var(--text3);margin-top:8px;letter-spacing:.6px;font-weight:400;opacity:.7;}
 .sb-version{font-size:9px;color:var(--text3);text-align:center;padding:6px 0 2px;letter-spacing:.5px;font-weight:400;opacity:.75;}
@@ -285,6 +305,20 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
   <div class="ls-version" id="ls-version-stamp"></div>
 </div>
 
+<!-- ── Tenant Lockout Screen ─────────────────────────────── -->
+<div id="lockout-screen" class="lockout-overlay">
+  <div class="ls-logo" style="margin-bottom:18px;">AssetTrack<em>Pro</em></div>
+  <div class="lock-icon" id="lock-icon-el">🔒</div>
+  <div class="lock-title" id="lock-title-el">Account Suspended</div>
+  <div class="lock-company" id="lock-company-el"></div>
+  <div class="lock-msg" id="lock-msg-el">Your organisation's AssetTrackPro account has been suspended.</div>
+  <div class="lock-contact">
+    <div class="lock-contact-lbl">To Reactivate, Contact</div>
+    <div class="lock-contact-val">Skyrit Technologies Admin</div>
+  </div>
+  <div class="lock-footer">AssetTrackPro &middot; Powered by Skyrit Technologies</div>
+</div>
+
 <div class="app" id="main-app" style="display:none;">
   <!-- SIDEBAR -->
   <div class="sidebar" id="sidebar">
@@ -299,6 +333,8 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
       <div class="sb-uname" id="sb-uname">—</div>
       <div class="sb-urole">System Administrator</div>
     </div>
+    <!-- Expiry warning strip — shown when logged-in company is expiring within 30 days -->
+    <div class="expiry-warn-strip" id="expiry-warn-strip"></div>
     <!-- Workspace selector -->
     <div style="padding:10px 14px;border-bottom:1px solid var(--border);">
       <div style="font-size:9px;color:var(--text3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:5px;">Active Workspace</div>
@@ -397,8 +433,10 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
         <div class="kpi c1"><div class="ki">🏢</div><div class="kl">Total Tenants</div><div class="kv" id="so-total">—</div><div class="ks">onboarded</div></div>
         <div class="kpi c4"><div class="ki">✅</div><div class="kl">Active</div><div class="kv" id="so-active">—</div><div class="ks">running</div></div>
         <div class="kpi c3"><div class="ki">⏸</div><div class="kl">Suspended</div><div class="kv" id="so-suspended">—</div><div class="ks">paused</div></div>
-        <div class="kpi c2"><div class="ki">⏰</div><div class="kl">Expiring Soon</div><div class="kv" id="so-expiring">—</div><div class="ks">within 7 days</div></div>
+        <div class="kpi c2"><div class="ki">⏰</div><div class="kl">Expiring Soon</div><div class="kv" id="so-expiring">—</div><div class="ks">within 30 days</div></div>
       </div>
+      <!-- 30-day expiry alert banner — populated by checkExpiryNotifications() -->
+      <div class="so-expiry-banner" id="so-expiry-banner"></div>
       <div id="tenant-list"></div>
     </div>
 
@@ -2281,6 +2319,129 @@ function downloadTemplate(type){
 }
 
 // ══════════════════════════════════════════════════════
+// TENANT ACCESS ENFORCEMENT
+// ══════════════════════════════════════════════════════
+
+// Show full-screen lockout overlay. reason: 'suspended' | 'expired'
+function showLockout(companyName, reason){
+  const loginScr=document.getElementById('login-screen');
+  if(loginScr) loginScr.classList.add('hidden');
+  const overlay=document.getElementById('lockout-screen');
+  if(!overlay) return;
+  const iconEl =document.getElementById('lock-icon-el');
+  const titleEl=document.getElementById('lock-title-el');
+  const coEl   =document.getElementById('lock-company-el');
+  const msgEl  =document.getElementById('lock-msg-el');
+  if(reason==='expired'){
+    if(iconEl)  iconEl.textContent='⏰';
+    if(titleEl) titleEl.textContent='Licence Expired';
+    if(msgEl)   msgEl.textContent='Your organisation\'s AssetTrackPro licence has expired. Please contact Skyrit Technologies Admin to renew and reactivate your access.';
+  } else {
+    if(iconEl)  iconEl.textContent='🔒';
+    if(titleEl) titleEl.textContent='Account Suspended';
+    if(msgEl)   msgEl.textContent='Your organisation\'s AssetTrackPro account has been suspended. Please contact Skyrit Technologies Admin for reactivation.';
+  }
+  if(coEl) coEl.textContent=companyName||'';
+  overlay.classList.add('active');
+}
+
+// Called after successful user auth (non-super_owner only).
+// Returns true if access is allowed, false if locked out.
+async function checkTenantAccessAtLogin(user){
+  if(!CONFIGURED||!user.company_id) return true;  // demo mode or no company — allow
+  try{
+    const coRes=await sb.query('companies',`?id=eq.${encodeURIComponent(user.company_id)}&select=id,name,active,access_type,access_expiry`);
+    if(!Array.isArray(coRes)||!coRes.length) return true; // can't find company — allow
+    const co=coRes[0];
+    const now=new Date();
+    const isExpired=co.access_type==='periodic'&&co.access_expiry&&new Date(co.access_expiry)<now;
+    if(isExpired){
+      // Auto-suspend in DB so other sessions catch it too
+      try{await sb.update('companies',co.id,{active:false});}catch(e){}
+      showLockout(co.name,'expired');
+      return false;
+    }
+    if(co.active===false){
+      showLockout(co.name,'suspended');
+      return false;
+    }
+  }catch(e){
+    // Network error during company check — fail open (don't block login on a bad request)
+    console.warn('checkTenantAccessAtLogin error:',e.message);
+  }
+  return true;
+}
+
+// Runs after initAdmin loads companies. Super Owner only.
+// - Auto-suspends any companies whose expiry date has passed
+// - Shows 30-day expiry banner in SO dashboard
+// - Populates sidebar warning strip for non-SO admins
+async function checkExpiryNotifications(){
+  const now=new Date();
+  const THIRTY=30*24*60*60*1000;
+
+  if(isSuperOwner()){
+    // ── Auto-suspend expired tenants ────────────────
+    const autoExpired=allCompanies.filter(c=>
+      c.access_type==='periodic'&&c.access_expiry&&
+      new Date(c.access_expiry)<now&&c.active!==false
+    );
+    for(const c of autoExpired){
+      c.active=false;
+      if(CONFIGURED){ try{await sb.update('companies',c.id,{active:false});}catch(e){} }
+    }
+    if(autoExpired.length) toast(`⛔ ${autoExpired.length} tenant(s) auto-suspended — licence expired`,'err');
+
+    // ── Find tenants expiring within 30 days ────────
+    const expiring=allCompanies.filter(c=>{
+      if(!c.access_expiry||c.access_type!=='periodic'||c.active===false) return false;
+      const diff=new Date(c.access_expiry)-now;
+      return diff>0&&diff<=THIRTY;
+    });
+
+    // Update KPI counter
+    const kpiEl=document.getElementById('so-expiring');
+    if(kpiEl) kpiEl.textContent=expiring.length;
+
+    // Populate SO dashboard expiry banner
+    const banner=document.getElementById('so-expiry-banner');
+    if(banner){
+      if(!expiring.length&&!autoExpired.length){
+        banner.style.display='none';
+      } else {
+        let rows='';
+        expiring.forEach(c=>{
+          const days=Math.ceil((new Date(c.access_expiry)-now)/(24*60*60*1000));
+          const urgent=days<=7;
+          rows+=`<div class="so-expiry-row">${c.name}<span class="so-expiry-days${urgent?' urgent':''}">${days} day${days===1?'':'s'} left &mdash; ${new Date(c.access_expiry).toLocaleDateString('en-GB')}</span></div>`;
+        });
+        autoExpired.forEach(c=>{
+          rows+=`<div class="so-expiry-row" style="color:var(--acc3);">${c.name}<span class="so-expiry-days urgent">EXPIRED &mdash; auto-suspended</span></div>`;
+        });
+        const count=expiring.length+(autoExpired.length?` · ${autoExpired.length} just expired`:'');
+        banner.innerHTML=`<div class="so-expiry-banner-ttl">⏰ Licence Expiry Alert — ${count} tenant(s) expiring within 30 days</div>${rows}`;
+        banner.style.display='block';
+      }
+    }
+
+  } else {
+    // ── Non-SO admin: check own company expiry ──────
+    // Show sidebar warning strip if expiring within 30 days
+    const co=activeCompany||allCompanies.find(c=>c.id===currentUser?.company_id)||null;
+    if(!co||co.access_type!=='periodic'||!co.access_expiry) return;
+    const diff=new Date(co.access_expiry)-now;
+    if(diff>0&&diff<=THIRTY){
+      const days=Math.ceil(diff/(24*60*60*1000));
+      const strip=document.getElementById('expiry-warn-strip');
+      if(strip){
+        strip.textContent=`⏰ Licence expires in ${days} day${days===1?'':'s'} — ${new Date(co.access_expiry).toLocaleDateString('en-GB')}. Contact Skyrit Technologies to renew.`;
+        strip.style.display='block';
+      }
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════
 // AUTH
 // ══════════════════════════════════════════════════════
 async function doLogin(){
@@ -2321,6 +2482,13 @@ async function doLogin(){
       pendingFirstLoginUser=user;
       document.getElementById('fcp-overlay').classList.add('open');
       return;
+    }
+
+    // ── Tenant access gate (non-super_owner only) ──
+    // Super Owner is always exempt — they must be able to log in to reactivate tenants
+    if(user.role!=='super_owner'){
+      const allowed=await checkTenantAccessAtLogin(user);
+      if(!allowed) return;  // showLockout() already called inside
     }
 
     completeLogin(user);
@@ -2408,6 +2576,12 @@ function doLogout(){
   if(gpsEl){gpsEl.textContent='';gpsEl.style.display='none';}
   const soNav=document.getElementById('nav-superowner');
   if(soNav)soNav.style.display='none';
+  // Reset lockout overlay so login screen is clean on next attempt
+  const lockout=document.getElementById('lockout-screen');
+  if(lockout) lockout.classList.remove('active');
+  // Reset expiry warning strip
+  const strip=document.getElementById('expiry-warn-strip');
+  if(strip){strip.style.display='none';strip.textContent='';}
   document.getElementById('login-screen').classList.remove('hidden');
   document.getElementById('main-app').style.display='none';
 }
@@ -2418,6 +2592,8 @@ function doLogout(){
 async function initAdmin(){
   // ── Step 1: Load all companies (scoped internally by loadCompanies) ──
   await loadCompanies();
+  // ── Expiry notifications + auto-suspend sweep (runs every login) ──
+  await checkExpiryNotifications();
 
   if(CONFIGURED){
     try{
@@ -5164,7 +5340,7 @@ function renderSuperOwner(){
   const expiring=allCompanies.filter(c=>{
     if(!c.access_expiry)return false;
     const exp=new Date(c.access_expiry).getTime();
-    return exp>now&&exp<now+7*24*60*60*1000;
+    return exp>now&&exp<now+30*24*60*60*1000;
   }).length;
   document.getElementById('so-total').textContent=total;
   document.getElementById('so-active').textContent=active;

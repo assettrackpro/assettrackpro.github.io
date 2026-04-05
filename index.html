@@ -82,6 +82,21 @@ input,select,textarea,button{font-family:var(--fb);font-weight:700;}
 .ls-btn:active{transform:scale(.97);}
 .ls-err{font-size:12px;color:var(--acc3);text-align:center;margin-top:10px;
   min-height:18px;font-weight:700;}
+/* ── Tenant lockout screen ───────────────────────── */
+.lockout-overlay{position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;}
+.lockout-overlay.active{display:flex;}
+.lock-icon{font-size:56px;margin-bottom:14px;}
+.lock-title{font-family:var(--fh);font-size:22px;font-weight:900;color:var(--acc3);margin-bottom:6px;letter-spacing:-.3px;}
+.lock-company{font-family:var(--fh);font-size:14px;font-weight:800;color:var(--text);margin-bottom:12px;}
+.lock-msg{font-size:13px;color:var(--text2);max-width:310px;line-height:1.7;margin-bottom:22px;font-weight:400;}
+.lock-contact{background:rgba(214,48,64,.07);border:2px solid rgba(214,48,64,.22);border-radius:14px;padding:16px 24px;max-width:310px;width:100%;margin-bottom:20px;}
+.lock-contact-lbl{font-size:10px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:var(--acc3);margin-bottom:6px;}
+.lock-contact-val{font-family:var(--fh);font-size:14px;font-weight:900;color:var(--text);}
+.lock-footer{font-size:11px;color:var(--text3);margin-top:6px;}
+/* ── In-app expiry warning banner (home screen) ─── */
+.field-expiry-banner{display:none;background:rgba(255,152,0,.12);border:2px solid rgba(255,152,0,.35);border-radius:12px;padding:12px 16px;margin:0 20px 4px;text-align:center;}
+.field-expiry-banner-ttl{font-family:var(--fh);font-size:12px;font-weight:900;color:#c45c00;margin-bottom:3px;}
+.field-expiry-banner-msg{font-size:11px;color:var(--text2);line-height:1.5;}
 .ls-role{font-size:11px;color:var(--text3);text-align:center;margin-top:20px;
   line-height:2;font-weight:400;}
 /* ── GPS STAMP ── */
@@ -440,6 +455,21 @@ video#scanvid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
   <div class="ls-role">Admin? <a href="admin.html">Go to Admin Portal →</a></div>
 </div>
 
+<!-- ── Tenant Lockout Screen ─────────────────────────────── -->
+<div id="lockout-screen" class="lockout-overlay">
+  <div class="ls-logo" style="margin-bottom:18px;">AssetTrack<em>Pro</em></div>
+  <div class="ls-sub" style="margin-bottom:16px;">FIELD OPERATIONS</div>
+  <div class="lock-icon" id="lock-icon-el">🔒</div>
+  <div class="lock-title" id="lock-title-el">Account Suspended</div>
+  <div class="lock-company" id="lock-company-el"></div>
+  <div class="lock-msg" id="lock-msg-el">Your organisation's AssetTrackPro account has been suspended.</div>
+  <div class="lock-contact">
+    <div class="lock-contact-lbl">To Reactivate, Contact</div>
+    <div class="lock-contact-val">Skyrit Technologies Admin</div>
+  </div>
+  <div class="lock-footer">AssetTrackPro &middot; Powered by Skyrit Technologies</div>
+</div>
+
 <div class="app" id="main-app" style="display:none;">
   <div class="screens">
 
@@ -475,6 +505,11 @@ video#scanvid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
         <button class="qa" onclick="doLogout()"><div class="qa-i">🚪</div><div class="qa-l">Sign Out</div></button>
       </div>
       <div id="cfg-notice-wrap"></div>
+      <!-- Expiry warning banner — shown when company licence is expiring within 30 days -->
+      <div class="field-expiry-banner" id="field-expiry-banner">
+        <div class="field-expiry-banner-ttl" id="field-expiry-ttl">⏰ Licence Expiring Soon</div>
+        <div class="field-expiry-banner-msg" id="field-expiry-msg"></div>
+      </div>
       <div style="height:20px;"></div>
     </div>
 
@@ -798,6 +833,87 @@ const DEMO_USERS=[
   {username:'auditor',password:'audit123',name:'Lead Auditor',role:'field'},
 ];
 
+// ══════════════════════════════════════════════════════
+// TENANT ACCESS ENFORCEMENT
+// ══════════════════════════════════════════════════════
+
+// Show full-screen lockout overlay. reason: 'suspended' | 'expired'
+function showLockout(companyName, reason){
+  const loginScr=document.getElementById('login-screen');
+  if(loginScr) loginScr.classList.add('hidden');
+  hideSaving();
+  const overlay=document.getElementById('lockout-screen');
+  if(!overlay) return;
+  const iconEl =document.getElementById('lock-icon-el');
+  const titleEl=document.getElementById('lock-title-el');
+  const coEl   =document.getElementById('lock-company-el');
+  const msgEl  =document.getElementById('lock-msg-el');
+  if(reason==='expired'){
+    if(iconEl)  iconEl.textContent='⏰';
+    if(titleEl) titleEl.textContent='Licence Expired';
+    if(msgEl)   msgEl.textContent='Your organisation\'s AssetTrackPro licence has expired. Please contact Skyrit Technologies Admin to renew and reactivate your access.';
+  } else {
+    if(iconEl)  iconEl.textContent='🔒';
+    if(titleEl) titleEl.textContent='Account Suspended';
+    if(msgEl)   msgEl.textContent='Your organisation\'s AssetTrackPro account has been suspended. Please contact Skyrit Technologies Admin for reactivation.';
+  }
+  if(coEl) coEl.textContent=companyName||'';
+  overlay.classList.add('active');
+}
+
+// Called after successful user auth. Returns true if access allowed, false if locked out.
+async function checkTenantAccessAtLogin(user){
+  if(!CONFIGURED||!user.company_id) return true;  // demo / no company — allow
+  try{
+    const coRes=await sb.query('companies',`?id=eq.${encodeURIComponent(user.company_id)}&select=id,name,active,access_type,access_expiry`);
+    if(!Array.isArray(coRes)||!coRes.length) return true;
+    const co=coRes[0];
+    const now=new Date();
+    const isExpired=co.access_type==='periodic'&&co.access_expiry&&new Date(co.access_expiry)<now;
+    if(isExpired){
+      showLockout(co.name,'expired');
+      return false;
+    }
+    if(co.active===false){
+      showLockout(co.name,'suspended');
+      return false;
+    }
+  }catch(e){
+    // Network error — fail open, don't block field officers on a connectivity blip
+    console.warn('checkTenantAccessAtLogin:',e.message);
+  }
+  return true;
+}
+
+// Runs after initApp. Checks if company is expiring within 30 days and shows in-app banner.
+async function checkFieldExpiryWarning(){
+  if(!CONFIGURED||!currentUser?.company_id) return;
+  try{
+    const coRes=await sb.query('companies',`?id=eq.${encodeURIComponent(currentUser.company_id)}&select=name,active,access_type,access_expiry`);
+    if(!Array.isArray(coRes)||!coRes.length) return;
+    const co=coRes[0];
+    if(co.access_type!=='periodic'||!co.access_expiry) return;
+    const now=new Date();
+    const diff=new Date(co.access_expiry)-now;
+    const THIRTY=30*24*60*60*1000;
+    if(diff>0&&diff<=THIRTY){
+      const days=Math.ceil(diff/(24*60*60*1000));
+      const urgent=days<=7;
+      const banner=document.getElementById('field-expiry-banner');
+      const ttl   =document.getElementById('field-expiry-ttl');
+      const msg   =document.getElementById('field-expiry-msg');
+      if(banner&&ttl&&msg){
+        ttl.textContent=urgent
+          ?`⚠️ Licence expires in ${days} day${days===1?'':'s'}!`
+          :`⏰ Licence expiring in ${days} day${days===1?'':'s'}`;
+        msg.textContent=`Your organisation's access expires on ${new Date(co.access_expiry).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}. Contact Skyrit Technologies Admin to renew.`;
+        banner.style.display='block';
+        if(urgent) banner.style.borderColor='rgba(214,48,64,.4)';
+      }
+    }
+  }catch(e){/* silent — non-critical */}
+}
+
 async function doLogin(){
   const u=document.getElementById('ls-user').value.trim().toLowerCase();
   const p=document.getElementById('ls-pass').value;
@@ -838,6 +954,10 @@ async function doLogin(){
       document.getElementById('fcp-overlay').classList.add('open');
       return;
     }
+    // ── Tenant access gate ──────────────────────────
+    const allowed=await checkTenantAccessAtLogin(currentUser);
+    if(!allowed) return;  // showLockout() already called inside
+
     completeLogin();
   }catch(e){
     hideSaving();errEl.textContent='⚠ Connection error — '+e.message;
@@ -915,6 +1035,12 @@ function completeLogin(){
 
 function doLogout(){
   currentUser=null;sessionAssets=[];sessionAudit=[];sessionFlags=[];
+  // Reset lockout overlay so login screen is clean for next user
+  const lockout=document.getElementById('lockout-screen');
+  if(lockout) lockout.classList.remove('active');
+  // Reset in-app expiry banner
+  const banner=document.getElementById('field-expiry-banner');
+  if(banner){banner.style.display='none';banner.style.borderColor='';}
   document.getElementById('login-screen').classList.remove('hidden');
   document.getElementById('main-app').style.display='none';
   document.getElementById('ls-pass').value='';
@@ -1021,6 +1147,9 @@ function getStatCls(status){
 async function initApp(){
   document.getElementById('dh-user').textContent=
     `${new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'long'})} · ${currentUser.name||currentUser.username}`;
+
+  // Check licence expiry and show in-app warning banner if within 30 days
+  checkFieldExpiryWarning();
 
   const companyId=currentUser.company_id||null;
   loadCustomFieldsForCompany(companyId);
