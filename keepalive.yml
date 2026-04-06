@@ -1,0 +1,31 @@
+name: Supabase Keep-Alive
+
+on:
+  schedule:
+    - cron: '0 12 * * *'   # Runs daily at 12:00 UTC (1:00 PM WAT)
+  workflow_dispatch:         # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  ping-supabase:
+    name: Ping Supabase to prevent auto-pause
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping Supabase REST API
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/companies?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
+
+          echo "HTTP Status: $STATUS"
+
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
+            echo "✅ Supabase is alive and responding."
+          elif [ "$STATUS" -eq 0 ]; then
+            echo "❌ No response — Supabase may be paused or unreachable."
+            exit 1
+          else
+            echo "⚠️  Unexpected status code: $STATUS"
+            exit 1
+          fi
