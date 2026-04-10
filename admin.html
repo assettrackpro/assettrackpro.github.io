@@ -60,6 +60,18 @@ input,select,textarea,button{font-family:var(--fb);font-weight:700;}
   box-shadow:0 5px 20px rgba(0,119,204,.35);transition:transform .15s;letter-spacing:.3px;}
 .ls-btn:active{transform:scale(.97);}
 .ls-err{font-size:12px;color:var(--acc3);text-align:center;margin-top:10px;min-height:18px;max-width:380px;font-weight:700;}
+/* ── Asset Approval Workflow ─────────────────────────── */
+.apv-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:5px;letter-spacing:.3px;}
+.apv-pending{background:rgba(255,152,0,.15);color:#c45c00;border:1px solid rgba(255,152,0,.3);}
+.apv-approved{background:rgba(0,153,107,.13);color:var(--acc4);border:1px solid rgba(0,153,107,.25);}
+.apv-rejected{background:rgba(214,48,64,.12);color:var(--acc3);border:1px solid rgba(214,48,64,.25);}
+.apv-comment{font-size:10px;color:var(--acc3);margin-top:3px;font-style:italic;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.apv-panel{background:var(--surf);border:2px solid rgba(255,152,0,.3);border-radius:12px;padding:14px 18px;margin-bottom:18px;display:none;}
+.apv-panel.has-pending{display:block;}
+.apv-panel-ttl{font-family:var(--fh);font-size:13px;font-weight:900;color:#c45c00;margin-bottom:8px;}
+.apv-panel-count{font-size:11px;color:var(--text2);}
+.reject-modal-ta{width:100%;min-height:80px;padding:10px;border:2px solid var(--border);border-radius:10px;font-size:13px;font-family:Arial,sans-serif;background:var(--surf);color:var(--text);resize:vertical;outline:none;}
+.reject-modal-ta:focus{border-color:var(--acc3);}
 /* ── Tenant lockout screen ───────────────────────── */
 .lockout-overlay{position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;}
 .lockout-overlay.active{display:flex;}
@@ -394,6 +406,7 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
         <div class="kpi c2"><div class="ki">✅</div><div class="kl">Audited</div><div class="kv" id="k-audited">—</div><div class="ks">this cycle</div></div>
         <div class="kpi c3"><div class="ki">⚠️</div><div class="kl">Issues</div><div class="kv" id="k-issues">—</div><div class="ks">flagged</div></div>
         <div class="kpi c4"><div class="ki">👥</div><div class="kl">Field Users</div><div class="kv" id="k-users">—</div><div class="ks">active</div></div>
+        <div class="kpi c2" id="k-pending-kpi" style="cursor:pointer;" onclick="show('assets');document.getElementById('ast-approval').value='pending';renderAssets();" title="Click to review pending assets"><div class="ki">🕐</div><div class="kl">Pending Review</div><div class="kv" id="k-pending">—</div><div class="ks">awaiting approval</div></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         <div class="card">
@@ -482,13 +495,16 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
           <button class="act-btn btn-p" onclick="openAddAsset()">+ Add Asset</button>
         </div>
       </div>
+      <!-- Pending review alert banner -->
+      <div class="apv-panel" id="apv-pending-banner"><div class="apv-panel-ttl">🕐 Assets Pending Review</div><div class="apv-panel-count" id="apv-pending-count"></div></div>
       <!-- Filters -->
       <div class="card" style="padding:14px 16px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;">
           <div><div class="fl">Search</div><input class="fi" type="text" id="ast-search" placeholder="Name, barcode…" oninput="renderAssets()"></div>
           <div><div class="fl">Status</div><select class="fi" id="ast-status" onchange="renderAssets()"><option value="">All</option></select></div>
           <div><div class="fl">Category</div><select class="fi" id="ast-cat" onchange="renderAssets()"><option value="">All</option></select></div>
           <div><div class="fl">Department</div><select class="fi" id="ast-dept" onchange="renderAssets()"><option value="">All</option></select></div>
+          <div><div class="fl">Approval</div><select class="fi" id="ast-approval" onchange="renderAssets()"><option value="">All</option><option value="pending">🕐 Pending</option><option value="approved">✅ Approved</option><option value="rejected">❌ Rejected</option></select></div>
         </div>
       </div>
       <!-- Bulk action bar — shown when assets are selected -->
@@ -501,6 +517,8 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
         <div style="display:flex;gap:8px;">
           <button class="act-btn btn-s" style="font-size:11px;padding:6px 12px;" onclick="selectAllAssets()">Select All</button>
           <button class="act-btn btn-s" style="font-size:11px;padding:6px 12px;" onclick="clearAssetSelection()">Clear</button>
+          <button class="act-btn" style="font-size:11px;padding:6px 12px;background:rgba(0,153,107,.15);color:var(--acc4);border:1px solid rgba(0,153,107,.3);border-radius:10px;cursor:pointer;" onclick="bulkApproveAssets()">✅ Approve</button>
+          <button class="act-btn" style="font-size:11px;padding:6px 12px;background:rgba(255,152,0,.15);color:#c45c00;border:1px solid rgba(255,152,0,.3);border-radius:10px;cursor:pointer;" onclick="bulkRejectAssets()">❌ Reject</button>
           <button class="act-btn btn-d" style="font-size:11px;padding:6px 12px;" onclick="deleteSelectedAssets()">🗑 Delete Selected</button>
         </div>
       </div>
@@ -508,7 +526,7 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
         <table class="tbl">
           <thead><tr>
             <th style="width:36px;"><input type="checkbox" id="assets-select-all" title="Select all" onchange="toggleSelectAllAssets(this.checked)" style="accent-color:var(--acc3);width:14px;height:14px;cursor:pointer;"></th>
-            <th>Photo</th><th>Asset</th><th>Barcode</th><th>Category</th><th>Location</th><th>Dept</th><th>Custodian</th><th>Status</th><th>Actions</th>
+            <th>Photo</th><th>Asset</th><th>Barcode</th><th>Category</th><th>Location</th><th>Dept</th><th>Custodian</th><th>Status</th><th>Approval</th><th>Actions</th>
           </tr></thead>
           <tbody id="assets-tbody"></tbody>
         </table>
@@ -1332,8 +1350,18 @@ alter table users add column if not exists assigned_locations jsonb default '[]'
 
 -- Companies table: new columns for tenant module control and access timers
 alter table companies add column if not exists modules jsonb default '{}';
+-- Asset approval workflow (run once in Supabase SQL Editor)
+alter table assets add column if not exists approval_status text default 'pending';
+alter table assets add column if not exists approval_comment text default null;
+alter table assets add column if not exists approved_by text default null;
+alter table assets add column if not exists approved_at timestamptz default null;
 alter table companies add column if not exists access_type text default 'permanent';
 alter table companies add column if not exists access_expiry timestamptz default null;
+-- Asset approval workflow columns (run once)
+alter table assets add column if not exists approval_status text default 'pending';
+alter table assets add column if not exists approval_comment text default null;
+alter table assets add column if not exists approved_by text default null;
+alter table assets add column if not exists approved_at timestamptz default null;
 
 -- Audit log: ensure asset_id allows null (for LOGIN events)
 alter table audit_log alter column asset_id drop not null;
@@ -2823,6 +2851,11 @@ async function refreshDash(){
   document.getElementById('k-audited').textContent=audited;
   document.getElementById('k-issues').textContent=issues;
   document.getElementById('k-users').textContent=wsUsers.filter(u=>u.role!=='admin').length;
+  // Pending approval count + banner
+  var pendingApv=wsAssets.filter(function(a){return !a.approval_status||a.approval_status==='pending';}).length;
+  var kPend=document.getElementById('k-pending');if(kPend)kPend.textContent=pendingApv;
+  var apvBanner=document.getElementById('apv-pending-banner');var apvCnt=document.getElementById('apv-pending-count');
+  if(apvBanner){if(pendingApv>0){apvBanner.classList.add('has-pending');if(apvCnt)apvCnt.textContent=pendingApv+' asset(s) awaiting review — use the Approval filter to action them.';}else{apvBanner.classList.remove('has-pending');}}
 
   // Workspace context in dashboard header
   const coName=activeCompany?activeCompany.name:'All Companies';
@@ -2880,51 +2913,219 @@ function populateAssetFilters(){
   DEPARTMENTS.forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=d;deptSel.appendChild(o);});
 }
 
+function approvalBadge(a){
+  var s=a.approval_status||'pending';
+  if(s==='approved')return '<span class="apv-badge apv-approved">&#x2705; Approved</span>';
+  if(s==='rejected'){var cmt=a.approval_comment?'<div class="apv-comment">&#x1F4AC; '+a.approval_comment+'</div>':'';return '<span class="apv-badge apv-rejected">&#x274C; Rejected</span>'+cmt;}
+  return '<span class="apv-badge apv-pending">&#x1F550; Pending</span>';
+}
 function renderAssets(){
-  const q=(document.getElementById('ast-search')||{}).value||'';
-  const st=(document.getElementById('ast-status')||{}).value||'';
-  const cat=(document.getElementById('ast-cat')||{}).value||'';
-  const dept=(document.getElementById('ast-dept')||{}).value||'';
-  const scopedAssets=activeCompanyId
-    ?allAssets.filter(a=>a.company_id===activeCompanyId)
-    :allAssets;
-  const filtered=scopedAssets.filter(a=>{
-    const mq=!q||a.name.toLowerCase().includes(q.toLowerCase())||a.barcode.toLowerCase().includes(q.toLowerCase());
-    const ms=!st||a.status===st;
-    const mc=!cat||a.category===cat;
-    const md=!dept||a.department===dept;
-    return mq&&ms&&mc&&md;
+  var q=(document.getElementById('ast-search')||{}).value||'';
+  var st=(document.getElementById('ast-status')||{}).value||'';
+  var cat=(document.getElementById('ast-cat')||{}).value||'';
+  var dept=(document.getElementById('ast-dept')||{}).value||'';
+  var apv=(document.getElementById('ast-approval')||{}).value||'';
+  var scopedAssets=activeCompanyId?allAssets.filter(function(a){return a.company_id===activeCompanyId;}):allAssets;
+  var filtered=scopedAssets.filter(function(a){
+    var mq=!q||a.name.toLowerCase().includes(q.toLowerCase())||a.barcode.toLowerCase().includes(q.toLowerCase());
+    var ms=!st||a.status===st;var mc=!cat||a.category===cat;var md=!dept||a.department===dept;
+    var ma=!apv||(a.approval_status||'pending')===apv;
+    return mq&&ms&&mc&&md&&ma;
   });
-  const tbody=document.getElementById('assets-tbody');
-  const empty=document.getElementById('assets-empty');
-  const selAll=document.getElementById('assets-select-all');
-  if(selAll)selAll.checked=false;
+  var tbody=document.getElementById('assets-tbody');var empty=document.getElementById('assets-empty');
+  var selAll=document.getElementById('assets-select-all');if(selAll)selAll.checked=false;
   updateBulkBar();
   if(!filtered.length){tbody.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
-  tbody.innerHTML=filtered.map(a=>{
-    const img=a.photos&&a.photos[0];
-    const th=img?`<img src="${img}" style="width:36px;height:28px;object-fit:cover;border-radius:5px;">`:
-      `<div style="width:36px;height:28px;background:var(--surf2);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;">📦</div>`;
-    return `<tr>
-      <td><input type="checkbox" class="asset-cb" data-id="${a.id}" style="accent-color:var(--acc3);width:14px;height:14px;cursor:pointer;" onchange="updateBulkBar()"></td>
-      <td>${th}</td>
-      <td><div style="font-size:12px;color:var(--text);">${a.name}</div><div style="font-size:9px;color:var(--text3);">${a.category||''}${a.sub_category?' > '+a.sub_category:''}</div></td>
-      <td style="font-family:monospace;font-size:10px;color:var(--acc);">${a.barcode}</td>
-      <td style="font-size:11px;color:var(--text2);">${a.category||'--'}</td>
-      <td style="font-size:11px;color:var(--text2);">${a.location||'--'}</td>
-      <td style="font-size:11px;color:var(--text2);">${a.department||'--'}</td>
-      <td style="font-size:11px;color:var(--text2);">${a.custodian||'--'}</td>
-      <td>${statusBadge(a.status)}</td>
-      <td style="white-space:nowrap;">
-        <button class="act-btn btn-s" style="padding:5px 10px;font-size:10px;" onclick="editAsset('${a.id}')">Edit</button>
-        <button class="act-btn btn-d" style="padding:5px 10px;font-size:10px;margin-left:4px;" onclick="deleteAsset('${a.id}','${a.name}')">Delete</button>
-      </td>
-    </tr>`;
+  var canApprove=currentUser&&['admin','sub_admin','super_owner'].includes(currentUser.role);
+  tbody.innerHTML=filtered.map(function(a){
+    var img=a.photos&&a.photos[0];
+    var th=img?'<img src="'+img+'" style="width:36px;height:28px;object-fit:cover;border-radius:5px;">':'<div style="width:36px;height:28px;background:var(--surf2);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;">&#x1F4E6;</div>';
+    var apvS=a.approval_status||'pending';
+    var appBtn=canApprove&&apvS!=='approved'?'<button class="act-btn" style="padding:4px 8px;font-size:9px;background:rgba(0,153,107,.15);color:var(--acc4);border:1px solid rgba(0,153,107,.3);border-radius:8px;cursor:pointer;margin-left:3px;" data-id="'+a.id+'" onclick="approveAsset(this.dataset.id)">&#x2705;</button>':'';
+    var rejBtn=canApprove&&apvS!=='rejected'?'<button class="act-btn" style="padding:4px 8px;font-size:9px;background:rgba(214,48,64,.1);color:var(--acc3);border:1px solid rgba(214,48,64,.25);border-radius:8px;cursor:pointer;margin-left:3px;" data-id="'+a.id+'" onclick="openRejectModal(this.dataset.id)">&#x274C;</button>':'';
+    return '<tr>'+
+      '<td><input type="checkbox" class="asset-cb" data-id="'+a.id+'" style="accent-color:var(--acc3);width:14px;height:14px;cursor:pointer;" onchange="updateBulkBar()"></td>'+
+      '<td>'+th+'</td>'+
+      '<td><div style="font-size:12px;color:var(--text);">'+a.name+'</div><div style="font-size:9px;color:var(--text3);">'+(a.category||'')+(a.sub_category?' > '+a.sub_category:'')+'</div></td>'+
+      '<td style="font-family:monospace;font-size:10px;color:var(--acc);">'+a.barcode+'</td>'+
+      '<td style="font-size:11px;color:var(--text2);">'+(a.category||'--')+'</td>'+
+      '<td style="font-size:11px;color:var(--text2);">'+(a.location||'--')+'</td>'+
+      '<td style="font-size:11px;color:var(--text2);">'+(a.department||'--')+'</td>'+
+      '<td style="font-size:11px;color:var(--text2);">'+(a.custodian||'--')+'</td>'+
+      '<td>'+statusBadge(a.status)+'</td>'+
+      '<td>'+approvalBadge(a)+'</td>'+
+      '<td style="white-space:nowrap;"><button class="act-btn btn-s" style="padding:5px 10px;font-size:10px;" data-id="'+a.id+'" onclick="editAsset(this.dataset.id)">Edit</button><button class="act-btn btn-d" style="padding:5px 10px;font-size:10px;margin-left:4px;" data-id="'+a.id+'" data-name="'+a.name+'" onclick="deleteAsset(this.dataset.id,this.dataset.name)">Delete</button>'+appBtn+rejBtn+'</td>'+
+    '</tr>';
   }).join('');
 }
 
 function openAddAsset(){toast('Use the Field App to register assets. Admin can edit existing assets.','info');}
+
+// ── Asset Approval Workflow ───────────────────────────────────────────────────
+async function approveAsset(id){
+  var a=allAssets.find(function(x){return x.id===id;});if(!a)return;
+  var ts=new Date().toISOString();
+  var updates={approval_status:'approved',approved_by:currentUser.username,approved_at:ts,approval_comment:null};
+  if(CONFIGURED){try{await sb.update('assets',id,updates);}catch(e){toast('Approve failed: '+e.message,'err');return;}}
+  Object.assign(a,updates);toast('Approved: '+a.name,'ok');renderAssets();refreshDash();
+  if(CONFIGURED){try{await sb.insert('audit_log',{asset_id:id,company_id:a.company_id,barcode:a.barcode,action:'APPROVED',changes:JSON.stringify(updates),audited_by:currentUser.username,audited_at:ts,notes:'Approved by '+currentUser.username});}catch(e){}}
+}
+
+function openRejectModal(id){
+  window._pendingRejectId=id;
+  var a=allAssets.find(function(x){return x.id===id;});if(!a)return;
+  openModal('<div class="modal-ttl">&#x274C; Reject: '+a.name+'</div>'+
+    '<div style="font-size:11px;color:var(--text2);margin-bottom:14px;">Barcode: <strong style="color:var(--acc);font-family:monospace;">'+a.barcode+'</strong> &nbsp;&middot;&nbsp; By: <strong>'+(a.registered_by||'&mdash;')+'</strong></div>'+
+    '<div class="fg"><div class="fl">Rejection Reason <span class="req">REQUIRED</span></div>'+
+    '<textarea class="reject-modal-ta" id="reject-comment-inp" placeholder="Describe what needs to be corrected. The field officer will see this message."></textarea></div>'+
+    '<div class="modal-acts"><button class="act-btn btn-s" onclick="closeModal()">Cancel</button><button class="act-btn btn-d" onclick="confirmReject(window._pendingRejectId)">&#x274C; Confirm Rejection</button></div>');
+  setTimeout(function(){var t=document.getElementById('reject-comment-inp');if(t)t.focus();},120);
+}
+
+async function confirmReject(id){
+  var inp=document.getElementById('reject-comment-inp');
+  var comment=inp?inp.value.trim():'';
+  if(!comment){toast('Please enter a rejection reason','err');return;}
+  var a=allAssets.find(function(x){return x.id===id;});if(!a)return;
+  var ts=new Date().toISOString();
+  var updates={approval_status:'rejected',approved_by:currentUser.username,approved_at:ts,approval_comment:comment};
+  if(CONFIGURED){try{await sb.update('assets',id,updates);}catch(e){toast('Reject failed: '+e.message,'err');return;}}
+  Object.assign(a,updates);closeModal();toast('Rejected: '+a.name,'warn');renderAssets();refreshDash();
+  if(CONFIGURED){try{await sb.insert('audit_log',{asset_id:id,company_id:a.company_id,barcode:a.barcode,action:'REJECTED',changes:JSON.stringify(updates),audited_by:currentUser.username,audited_at:ts,notes:'Reason: '+comment});}catch(e){}}
+}
+
+async function bulkApproveAssets(){
+  var ids=[...document.querySelectorAll('.asset-cb:checked')].map(function(cb){return cb.dataset.id;});
+  if(!ids.length){toast('No assets selected','err');return;}
+  if(!confirm('Approve '+ids.length+' asset(s)?'))return;
+  var ts=new Date().toISOString();var done=0;
+  for(var i=0;i<ids.length;i++){
+    var a=allAssets.find(function(x){return x.id===ids[i];});if(!a)continue;
+    var u={approval_status:'approved',approved_by:currentUser.username,approved_at:ts,approval_comment:null};
+    if(CONFIGURED){try{await sb.update('assets',ids[i],u);}catch(e){continue;}}
+    Object.assign(a,u);done++;
+  }
+  toast(done+' asset(s) approved','ok');clearAssetSelection();renderAssets();refreshDash();
+}
+
+async function bulkRejectAssets(){
+  var ids=[...document.querySelectorAll('.asset-cb:checked')].map(function(cb){return cb.dataset.id;});
+  if(!ids.length){toast('No assets selected','err');return;}
+  window._bulkRejectIds=ids;
+  openModal('<div class="modal-ttl">&#x274C; Reject '+ids.length+' Asset(s)</div>'+
+    '<div style="font-size:12px;color:var(--text2);margin-bottom:14px;">One rejection reason will be sent to all '+ids.length+' selected asset(s).</div>'+
+    '<div class="fg"><div class="fl">Rejection Reason <span class="req">REQUIRED</span></div>'+
+    '<textarea class="reject-modal-ta" id="bulk-reject-comment" placeholder="Describe what needs to be corrected."></textarea></div>'+
+    '<div class="modal-acts"><button class="act-btn btn-s" onclick="closeModal()">Cancel</button><button class="act-btn btn-d" onclick="confirmBulkReject(window._bulkRejectIds)">&#x274C; Reject All '+ids.length+'</button></div>');
+  setTimeout(function(){var t=document.getElementById('bulk-reject-comment');if(t)t.focus();},120);
+}
+
+async function confirmBulkReject(ids){
+  var inp=document.getElementById('bulk-reject-comment');
+  var comment=inp?inp.value.trim():'';
+  if(!comment){toast('Please enter a rejection reason','err');return;}
+  var ts=new Date().toISOString();var done=0;
+  for(var i=0;i<ids.length;i++){
+    var a=allAssets.find(function(x){return x.id===ids[i];});if(!a)continue;
+    var u={approval_status:'rejected',approved_by:currentUser.username,approved_at:ts,approval_comment:comment};
+    if(CONFIGURED){try{await sb.update('assets',ids[i],u);}catch(e){continue;}}
+    Object.assign(a,u);done++;
+  }
+  closeModal();toast(done+' asset(s) rejected','warn');clearAssetSelection();renderAssets();refreshDash();
+}
+
+
+// ── Asset Approval Workflow ────────────────────────────────────────────────────
+async function approveAsset(id){
+  var a=allAssets.find(function(x){return x.id===id;});if(!a)return;
+  var updates={approval_status:'approved',approved_by:currentUser.username,approved_at:new Date().toISOString(),approval_comment:null};
+  if(CONFIGURED){try{await sb.update('assets',id,updates);}catch(e){toast('Approve failed: '+e.message,'err');return;}}
+  Object.assign(a,updates);
+  toast('Approved: '+a.name,'ok');
+  renderAssets();refreshDash();
+  if(CONFIGURED){try{await sb.insert('audit_log',{asset_id:id,company_id:a.company_id,barcode:a.barcode,action:'APPROVED',changes:JSON.stringify(updates),audited_by:currentUser.username,audited_at:new Date().toISOString(),notes:'Approved by '+currentUser.username});}catch(e){}}
+}
+
+function openRejectModal(id){
+  var a=allAssets.find(function(x){return x.id===id;});if(!a)return;
+  openModal('<div class="modal-ttl">&#x274C; Reject Asset &mdash; '+a.name+'</div>'+
+    '<div style="font-size:11px;color:var(--text2);margin-bottom:14px;">Barcode: <strong style="color:var(--acc);font-family:monospace;">'+a.barcode+'</strong> &nbsp;&middot;&nbsp; Registered by: <strong>'+(a.registered_by||'&mdash;')+'</strong></div>'+
+    '<div class="fg"><div class="fl">Rejection Reason <span class="req">REQUIRED</span></div>'+
+      '<textarea class="reject-modal-ta" id="reject-comment-inp" placeholder="Describe what needs to be corrected &mdash; the field officer will see this message"></textarea>'+
+    '</div>'+
+    '<div class="modal-acts">'+
+      '<button class="act-btn btn-s" onclick="closeModal()">Cancel</button>'+
+      '<button class="act-btn btn-d" onclick="confirmReject(\''+id+'\')">&#x274C; Confirm Rejection</button>'+
+    '</div>');
+  setTimeout(function(){var t=document.getElementById('reject-comment-inp');if(t)t.focus();},120);
+}
+
+async function confirmReject(id){
+  var inp=document.getElementById('reject-comment-inp');
+  var comment=inp?inp.value.trim():'';
+  if(!comment){toast('Please enter a rejection reason','err');return;}
+  var a=allAssets.find(function(x){return x.id===id;});if(!a)return;
+  var updates={approval_status:'rejected',approved_by:currentUser.username,approved_at:new Date().toISOString(),approval_comment:comment};
+  if(CONFIGURED){try{await sb.update('assets',id,updates);}catch(e){toast('Reject failed: '+e.message,'err');return;}}
+  Object.assign(a,updates);
+  closeModal();
+  toast('Rejected: '+a.name,'warn');
+  renderAssets();refreshDash();
+  if(CONFIGURED){try{await sb.insert('audit_log',{asset_id:id,company_id:a.company_id,barcode:a.barcode,action:'REJECTED',changes:JSON.stringify(updates),audited_by:currentUser.username,audited_at:new Date().toISOString(),notes:'Rejection reason: '+comment});}catch(e){}}
+}
+
+async function bulkApproveAssets(){
+  var ids=[...document.querySelectorAll('.asset-cb:checked')].map(function(cb){return cb.dataset.id;});
+  if(!ids.length){toast('No assets selected','err');return;}
+  if(!confirm('Approve '+ids.length+' asset(s)?'))return;
+  var ts=new Date().toISOString();
+  var done=0;
+  for(var i=0;i<ids.length;i++){
+    var id=ids[i];
+    var a=allAssets.find(function(x){return x.id===id;});if(!a)continue;
+    var updates={approval_status:'approved',approved_by:currentUser.username,approved_at:ts,approval_comment:null};
+    if(CONFIGURED){try{await sb.update('assets',id,updates);}catch(e){continue;}}
+    Object.assign(a,updates);done++;
+  }
+  toast(done+' asset(s) approved','ok');
+  clearAssetSelection();renderAssets();refreshDash();
+}
+
+async function bulkRejectAssets(){
+  var ids=[...document.querySelectorAll('.asset-cb:checked')].map(function(cb){return cb.dataset.id;});
+  if(!ids.length){toast('No assets selected','err');return;}
+  window._bulkRejectIds=ids;
+  openModal('<div class="modal-ttl">&#x274C; Reject '+ids.length+' Asset(s)</div>'+
+    '<div style="font-size:12px;color:var(--text2);margin-bottom:14px;">This reason will be sent to all '+ids.length+' selected asset(s).</div>'+
+    '<div class="fg"><div class="fl">Rejection Reason <span class="req">REQUIRED</span></div>'+
+      '<textarea class="reject-modal-ta" id="bulk-reject-comment" placeholder="Describe what needs to be corrected"></textarea>'+
+    '</div>'+
+    '<div class="modal-acts">'+
+      '<button class="act-btn btn-s" onclick="closeModal()">Cancel</button>'+
+      '<button class="act-btn btn-d" onclick="confirmBulkReject(window._bulkRejectIds)">&#x274C; Reject All '+ids.length+'</button>'+
+    '</div>');
+  setTimeout(function(){var t=document.getElementById('bulk-reject-comment');if(t)t.focus();},120);
+}
+
+async function confirmBulkReject(ids){
+  var inp=document.getElementById('bulk-reject-comment');
+  var comment=inp?inp.value.trim():'';
+  if(!comment){toast('Please enter a rejection reason','err');return;}
+  var ts=new Date().toISOString();
+  var done=0;
+  for(var i=0;i<ids.length;i++){
+    var id=ids[i];
+    var a=allAssets.find(function(x){return x.id===id;});if(!a)continue;
+    var updates={approval_status:'rejected',approved_by:currentUser.username,approved_at:ts,approval_comment:comment};
+    if(CONFIGURED){try{await sb.update('assets',id,updates);}catch(e){continue;}}
+    Object.assign(a,updates);done++;
+  }
+  closeModal();
+  toast(done+' asset(s) rejected','warn');
+  clearAssetSelection();renderAssets();refreshDash();
+}
+
 
 function updateBulkBar(){
   const checked=document.querySelectorAll('.asset-cb:checked');

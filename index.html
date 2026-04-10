@@ -82,6 +82,20 @@ input,select,textarea,button{font-family:var(--fb);font-weight:700;}
 .ls-btn:active{transform:scale(.97);}
 .ls-err{font-size:12px;color:var(--acc3);text-align:center;margin-top:10px;
   min-height:18px;font-weight:700;}
+/* ── Asset Approval (Field) ─────────────────────── */
+.apv-pill{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:800;padding:2px 7px;border-radius:5px;letter-spacing:.3px;flex-shrink:0;}
+.apv-pending {background:rgba(255,152,0,.15);color:#c45c00;}
+.apv-approved{background:rgba(0,153,107,.13);color:#00996b;}
+.apv-rejected{background:rgba(214,48,64,.12);color:#d63040;}
+.rejection-notice{display:none;background:rgba(214,48,64,.07);border:2px solid rgba(214,48,64,.25);border-radius:12px;padding:14px 16px;margin:0 20px 10px;}
+.rejection-notice.visible{display:block;}
+.rejection-notice-ttl{font-family:var(--fh);font-size:13px;font-weight:900;color:var(--acc3);margin-bottom:8px;}
+.rn-item{background:var(--surf);border:1px solid rgba(214,48,64,.2);border-radius:9px;padding:10px 12px;margin-bottom:7px;}
+.rn-item:last-child{margin-bottom:0;}
+.rn-name{font-size:12px;font-weight:700;color:var(--text);}
+.rn-bc{font-size:10px;color:var(--acc);font-family:monospace;margin-top:1px;}
+.rn-comment{font-size:11px;color:var(--acc3);margin-top:5px;font-style:italic;line-height:1.4;}
+.rn-fix-btn{margin-top:8px;background:var(--g-blue);color:#0a1e38;border:none;border-radius:8px;padding:7px 14px;font-size:11px;font-weight:800;cursor:pointer;font-family:var(--fh);width:100%;}
 /* ── Tenant lockout screen ───────────────────────── */
 .lockout-overlay{position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;}
 .lockout-overlay.active{display:flex;}
@@ -505,6 +519,11 @@ video#scanvid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
         <button class="qa" onclick="doLogout()"><div class="qa-i">🚪</div><div class="qa-l">Sign Out</div></button>
       </div>
       <div id="cfg-notice-wrap"></div>
+      <!-- Rejection notice - assets rejected by admin needing correction -->
+      <div class="rejection-notice" id="rejection-notice">
+        <div class="rejection-notice-ttl">&#x274C; Assets Rejected &#x2014; Correction Required</div>
+        <div id="rejection-notice-list"></div>
+      </div>
       <!-- Expiry warning banner — shown when company licence is expiring within 30 days -->
       <div class="field-expiry-banner" id="field-expiry-banner">
         <div class="field-expiry-banner-ttl" id="field-expiry-ttl">⏰ Licence Expiring Soon</div>
@@ -770,6 +789,7 @@ const sb = {
   ASSET_COLS:['id','barcode','company_id','name','category','sub_category','location',
     'department','status','condition','custodian','serial','notes','photos',
     'registered_by','last_audit_date','last_audit_by','last_audit_changes',
+    'approval_status','approval_comment','approved_by','approved_at',
     'created_at','updated_at'],
   cleanAsset(data){
     const out={};
@@ -828,6 +848,115 @@ let sessionAudit=[];   // assets audited THIS session
 let sessionFlags=[];
 
 // Demo users stored in localStorage until Supabase is configured
+// ══════════════════════════════════════════════════════
+// ASSET APPROVAL WORKFLOW — Field Side
+// ══════════════════════════════════════════════════════
+
+async function checkRejectedAssets(){
+  if(!CONFIGURED||!currentUser)return;
+  try{
+    var companyId=currentUser.company_id||null;
+    var q='?approval_status=eq.rejected&registered_by=eq.'+encodeURIComponent(currentUser.username)+'&select=id,barcode,name,approval_comment,created_at';
+    if(companyId) q+='&company_id=eq.'+companyId;
+    var rejected=await sb.query('assets',q);
+    if(!Array.isArray(rejected)||!rejected.length){
+      var n=document.getElementById('rejection-notice');
+      if(n)n.classList.remove('visible');
+      return;
+    }
+    var list=document.getElementById('rejection-notice-list');
+    if(list){
+      list.innerHTML=rejected.map(function(a){
+        return '<div class="rn-item">'+
+          '<div class="rn-name">'+a.name+'</div>'+
+          '<div class="rn-bc">&#x25A3; '+a.barcode+'</div>'+
+          (a.approval_comment?'<div class="rn-comment">&#x1F4AC; '+a.approval_comment+'</div>':'')+
+          '<button class="rn-fix-btn" onclick="openResubmitAsset(\''+a.id+'\')">Fix &amp; Resubmit &#x2192;</button>'+
+        '</div>';
+      }).join('');
+    }
+    var notice=document.getElementById('rejection-notice');
+    if(notice)notice.classList.add('visible');
+  }catch(e){}
+}
+
+async function openResubmitAsset(id){
+  try{
+    var asset=null;
+    if(CONFIGURED){
+      var res=await sb.query('assets','?id=eq.'+encodeURIComponent(id)+'&select=*');
+      if(Array.isArray(res)&&res.length)asset=res[0];
+    }
+    if(!asset){toast('Could not load asset data','err');return;}
+    go('register');
+    setTimeout(function(){
+      var bcInp=document.getElementById('bc-inp');
+      if(bcInp){bcInp.value=asset.barcode;bcInp.readOnly=true;bcInp.style.opacity='.6';}
+      var catEl=document.getElementById('f-cat');
+      if(catEl){catEl.value=asset.category||'';onCat();}
+      var subEl=document.getElementById('f-subcat');
+      if(subEl){subEl.value=asset.sub_category||'';onSubcat();}
+      var nmEl=document.getElementById('f-name');if(nmEl)nmEl.value=asset.name||'';
+      var locEl=document.getElementById('f-loc');if(locEl)locEl.value=asset.location||'';
+      var deptEl=document.getElementById('f-dept');if(deptEl)deptEl.value=asset.department||'';
+      var stEl=document.getElementById('f-status');if(stEl)stEl.value=asset.status||'';
+      var condEl=document.getElementById('f-cond');if(condEl)condEl.value=asset.condition||'';
+      var serialEl=document.getElementById('f-serial');if(serialEl)serialEl.value=asset.serial||'';
+      var custEl=document.getElementById('f-cust');if(custEl)custEl.value=asset.custodian||'';
+      var notesEl=document.getElementById('f-notes');if(notesEl)notesEl.value=asset.notes||'';
+      window._resubmitAssetId=id;
+      window._resubmitBarcode=asset.barcode;
+      var existing=document.getElementById('resubmit-banner');
+      if(!existing){
+        var banner=document.createElement('div');
+        banner.id='resubmit-banner';
+        banner.style.cssText='background:rgba(214,48,64,.08);border:2px solid rgba(214,48,64,.2);border-radius:10px;padding:10px 14px;margin:0 20px 12px;font-size:11px;color:var(--acc3);font-weight:700;';
+        banner.innerHTML='&#x270F;&#xFE0F; Resubmitting rejected asset &mdash; fix the issues below and tap Save to resubmit for review.';
+        var fbody=document.querySelector('#s-register .fbody');
+        if(fbody)fbody.insertBefore(banner,fbody.firstChild);
+      }
+      var shdrEl=document.querySelector('#s-register .shdr-ttl');
+      if(shdrEl)shdrEl.textContent='Fix & Resubmit Asset';
+      toast('Form pre-filled — fix the issues and resubmit','info');
+    },320);
+  }catch(e){toast('Error loading asset: '+e.message,'err');}
+}
+
+async function resubmitAsset(patchData){
+  var id=window._resubmitAssetId;
+  if(!id)return false;
+  patchData.approval_status='pending';
+  patchData.approval_comment=null;
+  patchData.approved_by=null;
+  patchData.approved_at=null;
+  patchData.updated_at=new Date().toISOString();
+  if(CONFIGURED){
+    try{
+      await sb.update('assets',id,sb.cleanAsset(patchData));
+      updateHistoryApprovalStatus(id,'pending',null);
+      window._resubmitAssetId=null;
+      window._resubmitBarcode=null;
+      var rb=document.getElementById('resubmit-banner');if(rb)rb.remove();
+      var shdrEl=document.querySelector('#s-register .shdr-ttl');if(shdrEl)shdrEl.textContent='Register Asset';
+      var bcInp=document.getElementById('bc-inp');if(bcInp){bcInp.readOnly=false;bcInp.style.opacity='';}
+      checkRejectedAssets();
+      return true;
+    }catch(e){toast('Resubmit failed: '+e.message,'err');return false;}
+  }
+  return false;
+}
+
+function updateHistoryApprovalStatus(assetId,status,comment){
+  try{
+    var key='atp_history_'+(currentUser?currentUser.username:'unknown');
+    var hist=JSON.parse(localStorage.getItem(key)||'[]');
+    var idx=hist.findIndex(function(a){return a.id===assetId;});
+    if(idx>=0){hist[idx].approval_status=status;hist[idx].approval_comment=comment||null;}
+    localStorage.setItem(key,JSON.stringify(hist));
+  }catch(e){}
+}
+
+
 const DEMO_USERS=[
   {username:'field.officer',password:'field123',name:'Field Officer',role:'field'},
   {username:'auditor',password:'audit123',name:'Lead Auditor',role:'field'},
@@ -1150,6 +1279,8 @@ async function initApp(){
 
   // Check licence expiry and show in-app warning banner if within 30 days
   checkFieldExpiryWarning();
+  // Check for rejected assets needing correction and show home screen notice
+  checkRejectedAssets();
 
   const companyId=currentUser.company_id||null;
   loadCustomFieldsForCompany(companyId);
@@ -1494,6 +1625,8 @@ function persistHistory(asset, cloudSaved){
       custodian:asset.custodian, serial:asset.serial,
       registered_by:asset.registered_by, company_id:asset.company_id,
       created_at:asset.created_at, cloud:cloudSaved,
+      approval_status:asset.approval_status||'pending',
+      approval_comment:asset.approval_comment||null,
     });
     if(hist.length>500)hist=hist.slice(0,500);
     localStorage.setItem(key,JSON.stringify(hist));
@@ -1527,37 +1660,58 @@ function updateSyncBadge(){
 }
 
 function renderHistory(){
-  const el=document.getElementById('history-list');
+  var el=document.getElementById('history-list');
   if(!el)return;
-  const hist=getMyHistory();
+  var hist=getMyHistory();
   if(!hist.length){
-    el.innerHTML='<div class="empty"><div class="empty-i">📋</div><div class="empty-t">No captures yet</div><div class="empty-s">Every asset you register appears here permanently, even after logout.</div></div>';
+    el.innerHTML='<div class="empty"><div class="empty-i">&#x1F4CB;</div><div class="empty-t">No captures yet</div><div class="empty-s">Every asset you register appears here permanently, even after logout.</div></div>';
     return;
   }
-  el.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <div style="font-size:12px;color:var(--text2);">${hist.length} total · ${hist.filter(a=>a.cloud).length} ☁ synced · ${hist.filter(a=>!a.cloud).length} 💾 local</div>
-      <div style="display:flex;gap:8px;">
-        <button onclick="exportHistoryCSV()" style="font-size:10px;background:var(--acc);border:none;border-radius:7px;padding:6px 12px;color:#0a1e38;font-weight:700;cursor:pointer;">⬇ CSV</button>
-        <button onclick="if(confirm('Clear all history?')){localStorage.removeItem('atp_history_'+(currentUser?currentUser.username:'unknown'));renderHistory();updateSyncBadge();}" style="font-size:10px;background:var(--surf2);border:1px solid var(--border);border-radius:7px;padding:6px 10px;color:var(--text3);cursor:pointer;">Clear</button>
-      </div>
-    </div>
-    ${hist.map(a=>`
-    <div style="background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name}</div>
-          <div style="font-size:10px;color:var(--acc);font-family:monospace;margin-top:1px;">▣ ${a.barcode}</div>
-        </div>
-        <span style="font-size:9px;padding:3px 8px;border-radius:5px;flex-shrink:0;${a.cloud?'background:rgba(0,200,160,.12);color:var(--acc)':'background:rgba(255,160,0,.12);color:var(--acc2)'};">${a.cloud?'☁ Cloud':'💾 Local'}</span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;margin-top:7px;font-size:10px;color:var(--text2);">
-        <div>📍 ${a.location||'—'}</div><div>🏢 ${a.department||'—'}</div>
-        <div>📁 ${a.category||''}${a.sub_category?' › '+a.sub_category:''}</div>
-        <div>👤 ${a.custodian||'—'}</div>
-      </div>
-      <div style="font-size:9px;color:var(--text3);margin-top:5px;">${a.created_at?new Date(a.created_at).toLocaleString('en-GB'):'—'}</div>
-    </div>`).join('')}`;
+  var rejected=hist.filter(function(a){return a.approval_status==='rejected';}).length;
+  var approved=hist.filter(function(a){return a.approval_status==='approved';}).length;
+  var pending=hist.filter(function(a){return !a.approval_status||a.approval_status==='pending';}).length;
+  var rows=hist.map(function(a){
+    var apvS=a.approval_status||'pending';
+    var bgColor=apvS==='approved'?'rgba(0,153,107,.07)':apvS==='rejected'?'rgba(214,48,64,.06)':'var(--surf2)';
+    var borderColor=apvS==='approved'?'rgba(0,153,107,.22)':apvS==='rejected'?'rgba(214,48,64,.2)':'var(--border)';
+    var pillLabel=apvS==='approved'?'&#x2705; Approved':apvS==='rejected'?'&#x274C; Rejected':'&#x1F550; Pending';
+    var commentBlock=apvS==='rejected'&&a.approval_comment?'<div style="font-size:11px;color:var(--acc3);margin-top:7px;padding:7px 10px;background:rgba(214,48,64,.06);border-radius:7px;font-style:italic;line-height:1.45;">&#x1F4AC; <strong>Rejection reason:</strong> '+a.approval_comment+'</div>':'';
+    var fixBtn=apvS==='rejected'?'<button onclick="openResubmitAsset(\''+a.id+'\')" style="margin-top:8px;width:100%;background:var(--g-blue);color:#0a1e38;border:none;border-radius:8px;padding:7px;font-size:11px;font-weight:800;cursor:pointer;font-family:var(--fh);">&#x270F;&#xFE0F; Fix &amp; Resubmit &#x2192;</button>':'';
+    return '<div style="background:'+bgColor+';border:1px solid '+borderColor+';border-radius:12px;padding:12px 14px;margin-bottom:8px;">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'+
+        '<div style="flex:1;min-width:0;">'+
+          '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+a.name+'</div>'+
+          '<div style="font-size:10px;color:var(--acc);font-family:monospace;margin-top:1px;">&#x25A3; '+a.barcode+'</div>'+
+        '</div>'+
+        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">'+
+          '<span style="font-size:9px;padding:3px 8px;border-radius:5px;'+(a.cloud?'background:rgba(0,200,160,.12);color:var(--acc)':'background:rgba(255,160,0,.12);color:var(--acc2)')+';">'+(a.cloud?'&#x2601; Cloud':'&#x1F4BE; Local')+'</span>'+
+          '<span class="apv-pill apv-'+apvS+'">'+pillLabel+'</span>'+
+        '</div>'+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;margin-top:7px;font-size:10px;color:var(--text2);">'+
+        '<div>&#x1F4CD; '+(a.location||'&#x2014;')+'</div><div>&#x1F3E2; '+(a.department||'&#x2014;')+'</div>'+
+        '<div>&#x1F4C1; '+(a.category||'')+(a.sub_category?' &rsaquo; '+a.sub_category:'')+'</div>'+
+        '<div>&#x1F464; '+(a.custodian||'&#x2014;')+'</div>'+
+      '</div>'+
+      commentBlock+
+      '<div style="font-size:9px;color:var(--text3);margin-top:5px;">'+(a.created_at?new Date(a.created_at).toLocaleString('en-GB'):'&#x2014;')+'</div>'+
+      fixBtn+
+    '</div>';
+  }).join('');
+  el.innerHTML=
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'+
+      '<div style="font-size:11px;color:var(--text2);">'+hist.length+' total &middot; '+hist.filter(function(a){return a.cloud;}).length+' &#x2601; synced</div>'+
+      '<div style="display:flex;gap:8px;">'+
+        '<button onclick="exportHistoryCSV()" style="font-size:10px;background:var(--acc);border:none;border-radius:7px;padding:6px 12px;color:#0a1e38;font-weight:700;cursor:pointer;">&#x2B07; CSV</button>'+
+        '<button onclick="if(confirm(\'Clear all history?\')){localStorage.removeItem(\'atp_history_\'+(currentUser?currentUser.username:\'unknown\'));renderHistory();updateSyncBadge();}" style="font-size:10px;background:var(--surf2);border:1px solid var(--border);border-radius:7px;padding:6px 10px;color:var(--text3);cursor:pointer;">Clear</button>'+
+      '</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">'+
+      '<span class="apv-pill apv-pending">&#x1F550; '+pending+' Pending</span>'+
+      '<span class="apv-pill apv-approved">&#x2705; '+approved+' Approved</span>'+
+      (rejected?'<span class="apv-pill apv-rejected">&#x274C; '+rejected+' Rejected</span>':'')+
+    '</div>'+
+    rows;
 }
 
 function exportHistoryCSV(){
@@ -1668,6 +1822,43 @@ async function saveAsset(){
   if(!custodianVal){toast('Custodian is required','err');document.getElementById('f-cust').focus();return;}
   if(!photos[0]){toast('Main photo is mandatory','err');return;}
   if(!validateCustomFields())return;
+
+  // ── Resubmission intercept ────────────────────────────────────────
+  // If this is a fix-and-resubmit of a rejected asset, PATCH instead of INSERT
+  if(window._resubmitAssetId){
+    var btn2=document.getElementById('reg-submit-btn');
+    if(btn2)btn2.disabled=true;
+    showSaving('Resubmitting for review\u2026');
+    var patchAsset={
+      barcode:bc,name:nm,category:cat,sub_category:sub,
+      location:document.getElementById('f-loc').value,
+      department:document.getElementById('f-dept').value,
+      status:(document.getElementById('f-status')||{}).value||'Active',
+      condition:(document.getElementById('f-cond')||{}).value||'Good',
+      serial:document.getElementById('f-serial').value.trim(),
+      custodian:document.getElementById('f-cust').value.trim(),
+      notes:(document.getElementById('f-notes')||{}).value||'',
+      registered_by:currentUser.username,
+      company_id:currentUser.company_id||null,
+    };
+    if(CONFIGURED&&navigator.onLine&&photos[0]){
+      showSaving('Uploading photos\u2026');
+      var uploadTasks=photos.map(function(p,i){
+        if(!p)return Promise.resolve(null);
+        var path='assets/'+(currentUser.company_id||'co')+'/'+bc+'_'+Date.now()+'_'+i+'.jpg';
+        return sb.uploadPhoto('asset-photos',path,p.blob).catch(function(){return p.dataUrl||null;});
+      });
+      var uploaded=await Promise.all(uploadTasks);
+      var urls=uploaded.filter(Boolean);
+      if(urls.length)patchAsset.photos=urls;
+    }
+    var ok=await resubmitAsset(patchAsset);
+    hideSaving();
+    if(btn2)btn2.disabled=false;
+    if(ok){toast('Resubmitted for review \u2713','ok');resetForm();setTimeout(function(){go('home');},600);}
+    return;
+  }
+
   // ── Barcode duplicate check ──────────────────────────────────────
   // Step 1: Always check current session first (catches rapid re-submissions
   // before the first save has completed writing to Supabase)
@@ -1763,6 +1954,7 @@ async function saveAsset(){
     photos:photoUrls,
     registered_by:currentUser.username,
     registered_from_audit:fromAudit,
+    approval_status:'pending',
     company_id:currentUser.company_id||null,
     created_at:new Date().toISOString(),
   };
@@ -2137,7 +2329,7 @@ function renderSpool(){
       :'<span style="font-size:9px;color:var(--text3);margin-left:6px;">⏳ Pending sync</span>';
     return '<div class="aud-item" id="spool-item-'+a.id+'">'+th
       +'<div class="aud-inf">'
-      +'<div class="aud-nm">'+a.name+synced+'</div>'
+      +'<div class="aud-nm">'+a.name+synced+'<span class="apv-pill apv-'+(a.approval_status||'pending')+'" style="margin-left:5px;">'+((a.approval_status||'pending')==='approved'?'&#x2705; Approved':(a.approval_status==='rejected'?'&#x274C; Rejected':'&#x1F550; Pending'))+'</span></div>'
       +'<div class="aud-bc">▦ '+a.barcode+' · '+(a.location||'—')+'</div>'
       +'<div style="font-size:9px;color:var(--text3);margin-top:1px;">'+(a.department||'—')+' · '+a.condition+'</div>'
       +valLine+'</div>'
