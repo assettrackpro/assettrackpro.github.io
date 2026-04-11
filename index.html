@@ -775,13 +775,6 @@ video#scanvid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
 
 <script>
 // ══════════════════════════════════════════════════════
-// APP ENVIRONMENT — SAAS | ENTERPRISE_ONPREM
-// ══════════════════════════════════════════════════════
-const APP_ENVIRONMENT = 'SAAS'; // 'SAAS' | 'ENTERPRISE_ONPREM'
-const ONPREM_API_URL  = 'http://localhost:5005/api';
-let ONPREM_LICENSE_TIER = 2; // 0=BASIC 1=PRO 2=ENTERPRISE
-
-// ══════════════════════════════════════════════════════
 // SUPABASE CONFIGURATION
 // Replace these with your own Supabase project values
 // Get them from: https://supabase.com → Project Settings → API
@@ -849,32 +842,12 @@ const sb = {
 // AUTH — simple username/password against users table
 // In production use Supabase Auth (supabase.com/docs/guides/auth)
 // ══════════════════════════════════════════════════════
-
-// ── On-Prem data bridge — shadows `sb` when ENTERPRISE_ONPREM ──
-if(APP_ENVIRONMENT === 'ENTERPRISE_ONPREM'){
-  const _op = async (path, opts={}) => {
-    const r = await fetch(ONPREM_API_URL + path, {
-      ...opts,
-      headers:{'Content-Type':'application/json',...(opts.headers||{})}
-    });
-    if(!r.ok){ const t=await r.text(); throw new Error(t||r.statusText); }
-    const txt = await r.text();
-    return txt ? JSON.parse(txt) : null;
-  };
-  sb.query       = (t,p='')   => _op(`/query/${t}${p}`);
-  sb.insert      = (t,d)      => _op(`/insert/${t}`,{method:'POST',body:JSON.stringify(d)});
-  sb.update      = (t,id,d)   => _op(`/update/${t}/${id}`,{method:'PATCH',body:JSON.stringify(d)});
-  sb.uploadPhoto = async (bucket,path,blob) => {
-    const fd=new FormData(); fd.append('file',blob,path);
-    const r=await fetch(`${ONPREM_API_URL}/storage/upload/${bucket}/${path}`,{method:'POST',body:fd});
-    const d=await r.json(); return d.url||null;
-  };
-}
-
 let currentUser=null;
 let sessionAssets=[];  // assets registered THIS session
 let sessionAudit=[];   // assets audited THIS session
 let sessionFlags=[];
+// GPS captured at login — written to every asset at save time
+let currentGPS={lat:'',lng:'',label:''};
 
 // Demo users stored in localStorage until Supabase is configured
 // ══════════════════════════════════════════════════════
@@ -1151,6 +1124,8 @@ function captureLoginGPS(){
     // Update home screen GPS div
     if(dhGpsTxt)dhGpsTxt.textContent=label;
     if(dhGps)dhGps.style.display='flex';
+    // ── Store in module var so every asset captured this session carries GPS ──
+    currentGPS={lat,lng,label};
     if(currentUser&&CONFIGURED){
       try{await sb.insert('audit_log',{
         asset_id:null,company_id:currentUser.company_id||null,
@@ -1523,6 +1498,7 @@ function go(name){
   if(name==='register')resetForm();
   if(name==='spool')renderSpool();
   if(name==='audit')renderAudit();
+  if(name==='history')renderHistory();
 }
 
 // ══════════════════════════════════════════════════════
@@ -1691,7 +1667,50 @@ function updateSyncBadge(){
   }
 }
 
+// Fetches current approval_status + approval_comment for all history assets
+// from the DB and patches localStorage. Called every time History screen opens.
+async function refreshHistoryApprovals(){
+  if(!CONFIGURED||!navigator.onLine||!currentUser) return;
+  const uname=currentUser.username;
+  const hist=getMyHistory();
+  if(!hist.length) return;
+  try{
+    const res=await sb.query('assets',
+      '?registered_by=eq.'+encodeURIComponent(uname)+
+      '&select=id,barcode,approval_status,approval_comment,approved_by,approved_at'+
+      '&order=created_at.desc&limit=200');
+    if(!Array.isArray(res)||!res.length) return;
+    const map={};
+    res.forEach(r=>{ map[r.barcode]=r; });
+    let changed=false;
+    const updated=hist.map(a=>{
+      const cloud=map[a.barcode];
+      if(cloud && cloud.approval_status && cloud.approval_status!==a.approval_status){
+        changed=true;
+        return Object.assign({},a,{
+          approval_status:cloud.approval_status,
+          approval_comment:cloud.approval_comment||null,
+          approved_by:cloud.approved_by||null,
+          approved_at:cloud.approved_at||null,
+          cloud:true
+        });
+      }
+      return a;
+    });
+    if(changed){
+      localStorage.setItem('atp_history_'+uname,JSON.stringify(updated));
+    }
+  }catch(e){ console.warn('refreshHistoryApprovals:',e.message); }
+}
+
 function renderHistory(){
+  var el=document.getElementById('history-list');
+  if(!el)return;
+  // Trigger cloud refresh in background; re-render when it settles
+  refreshHistoryApprovals().then(()=>_renderHistoryUI()).catch(()=>_renderHistoryUI());
+}
+
+function _renderHistoryUI(){
   var el=document.getElementById('history-list');
   if(!el)return;
   var hist=getMyHistory();
@@ -1707,65 +1726,90 @@ function renderHistory(){
     var bgColor=apvS==='approved'?'rgba(0,153,107,.07)':apvS==='rejected'?'rgba(214,48,64,.06)':'var(--surf2)';
     var borderColor=apvS==='approved'?'rgba(0,153,107,.22)':apvS==='rejected'?'rgba(214,48,64,.2)':'var(--border)';
     var pillLabel=apvS==='approved'?'&#x2705; Approved':apvS==='rejected'?'&#x274C; Rejected':'&#x1F550; Pending';
-    var commentBlock=apvS==='rejected'&&a.approval_comment?'<div style="font-size:11px;color:var(--acc3);margin-top:7px;padding:7px 10px;background:rgba(214,48,64,.06);border-radius:7px;font-style:italic;line-height:1.45;">&#x1F4AC; <strong>Rejection reason:</strong> '+a.approval_comment+'</div>':'';
-    var fixBtn=apvS==='rejected'?'<button onclick="openResubmitAsset(\''+a.id+'\')" style="margin-top:8px;width:100%;background:var(--g-blue);color:#0a1e38;border:none;border-radius:8px;padding:7px;font-size:11px;font-weight:800;cursor:pointer;font-family:var(--fh);">&#x270F;&#xFE0F; Fix &amp; Resubmit &#x2192;</button>':'';
-    return '<div style="background:'+bgColor+';border:1px solid '+borderColor+';border-radius:12px;padding:12px 14px;margin-bottom:8px;">'+
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'+
-        '<div style="flex:1;min-width:0;">'+
-          '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+a.name+'</div>'+
-          '<div style="font-size:10px;color:var(--acc);font-family:monospace;margin-top:1px;">&#x25A3; '+a.barcode+'</div>'+
-        '</div>'+
-        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">'+
-          '<span style="font-size:9px;padding:3px 8px;border-radius:5px;'+(a.cloud?'background:rgba(0,200,160,.12);color:var(--acc)':'background:rgba(255,160,0,.12);color:var(--acc2)')+';">'+(a.cloud?'&#x2601; Cloud':'&#x1F4BE; Local')+'</span>'+
-          '<span class="apv-pill apv-'+apvS+'">'+pillLabel+'</span>'+
-        '</div>'+
-      '</div>'+
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;margin-top:7px;font-size:10px;color:var(--text2);">'+
-        '<div>&#x1F4CD; '+(a.location||'&#x2014;')+'</div><div>&#x1F3E2; '+(a.department||'&#x2014;')+'</div>'+
-        '<div>&#x1F4C1; '+(a.category||'')+(a.sub_category?' &rsaquo; '+a.sub_category:'')+'</div>'+
-        '<div>&#x1F464; '+(a.custodian||'&#x2014;')+'</div>'+
-      '</div>'+
-      commentBlock+
-      '<div style="font-size:9px;color:var(--text3);margin-top:5px;">'+(a.created_at?new Date(a.created_at).toLocaleString('en-GB'):'&#x2014;')+'</div>'+
-      fixBtn+
-    '</div>';
+    var commentBlock=(apvS==='rejected'||apvS==='approved')&&a.approval_comment
+      ?'<div style="font-size:11px;color:'+(apvS==='rejected'?'var(--acc3)':'var(--acc4)')
+        +';margin-top:7px;padding:7px 10px;background:'+(apvS==='rejected'?'rgba(214,48,64,.06)':'rgba(0,153,107,.06)')
+        +';border-radius:7px;font-style:italic;line-height:1.45;">&#x1F4AC; <strong>'
+        +(apvS==='rejected'?'Rejection reason':'Note')+':</strong> '+a.approval_comment+'</div>':'';
+    var approvedByBlock=apvS==='approved'&&a.approved_by
+      ?'<div style="font-size:10px;color:var(--acc4);margin-top:5px;">&#x2713; Approved by <strong>'+a.approved_by+'</strong>'
+        +(a.approved_at?' &middot; '+new Date(a.approved_at).toLocaleDateString('en-GB'):'')+'</div>':'';
+    var fixBtn=apvS==='rejected'
+      ?'<button onclick="openResubmitAsset(\''+a.id+'\')" style="margin-top:8px;width:100%;background:var(--g-blue);color:#0a1e38;border:none;border-radius:8px;padding:7px;font-size:11px;font-weight:800;cursor:pointer;font-family:var(--fh);">&#x270F;&#xFE0F; Fix &amp; Resubmit &#x2192;</button>':'';
+    var gpsLine=a.capture_location
+      ?'<div style="font-size:9px;color:var(--text3);margin-top:3px;">&#x1F4CD; Captured at: '+a.capture_location+'</div>':'';
+    return '<div style="background:'+bgColor+';border:1px solid '+borderColor+';border-radius:12px;padding:12px 14px;margin-bottom:8px;">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'
+        +'<div style="flex:1;min-width:0;">'
+          +'<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+a.name+'</div>'
+          +'<div style="font-size:10px;color:var(--acc);font-family:monospace;margin-top:1px;">&#x25A3; '+a.barcode+'</div>'
+        +'</div>'
+        +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">'
+          +'<span style="font-size:9px;padding:3px 8px;border-radius:5px;'+(a.cloud?'background:rgba(0,200,160,.12);color:var(--acc)':'background:rgba(255,160,0,.12);color:var(--acc2)')+'">'+(a.cloud?'&#x2601; Cloud':'&#x1F4BE; Local')+'</span>'
+          +'<span class="apv-pill apv-'+apvS+'">'+pillLabel+'</span>'
+        +'</div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;margin-top:7px;font-size:10px;color:var(--text2);">'
+        +'<div>&#x1F4CD; '+(a.location||'&#x2014;')+'</div><div>&#x1F3E2; '+(a.department||'&#x2014;')+'</div>'
+        +'<div>&#x1F4C1; '+(a.category||'')+(a.sub_category?' &rsaquo; '+a.sub_category:'')+'</div>'
+        +'<div>&#x1F464; '+(a.custodian||'&#x2014;')+'</div>'
+      +'</div>'
+      +gpsLine
+      +commentBlock
+      +approvedByBlock
+      +'<div style="font-size:9px;color:var(--text3);margin-top:5px;">'+(a.created_at?new Date(a.created_at).toLocaleString('en-GB'):'&#x2014;')+'</div>'
+      +fixBtn
+    +'</div>';
   }).join('');
   el.innerHTML=
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'+
-      '<div style="font-size:11px;color:var(--text2);">'+hist.length+' total &middot; '+hist.filter(function(a){return a.cloud;}).length+' &#x2601; synced</div>'+
-      '<div style="display:flex;gap:8px;">'+
-        '<button onclick="exportHistoryCSV()" style="font-size:10px;background:var(--acc);border:none;border-radius:7px;padding:6px 12px;color:#0a1e38;font-weight:700;cursor:pointer;">&#x2B07; CSV</button>'+
-        '<button onclick="if(confirm(\'Clear all history?\')){localStorage.removeItem(\'atp_history_\'+(currentUser?currentUser.username:\'unknown\'));renderHistory();updateSyncBadge();}" style="font-size:10px;background:var(--surf2);border:1px solid var(--border);border-radius:7px;padding:6px 10px;color:var(--text3);cursor:pointer;">Clear</button>'+
-      '</div>'+
-    '</div>'+
-    '<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">'+
-      '<span class="apv-pill apv-pending">&#x1F550; '+pending+' Pending</span>'+
-      '<span class="apv-pill apv-approved">&#x2705; '+approved+' Approved</span>'+
-      (rejected?'<span class="apv-pill apv-rejected">&#x274C; '+rejected+' Rejected</span>':'')+
-    '</div>'+
-    rows;
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+      +'<div style="font-size:11px;color:var(--text2);">'+hist.length+' total &middot; '+hist.filter(function(a){return a.cloud;}).length+' &#x2601; synced</div>'
+      +'<div style="display:flex;gap:8px;">'
+        +'<button onclick="exportHistoryCSV()" style="font-size:10px;background:var(--acc);border:none;border-radius:7px;padding:6px 12px;color:#0a1e38;font-weight:700;cursor:pointer;">&#x2B07; CSV</button>'
+        +'<button onclick="if(confirm(\'Clear all history?\')){localStorage.removeItem(\'atp_history_\'+(currentUser?currentUser.username:\'unknown\'));renderHistory();updateSyncBadge();}" style="font-size:10px;background:var(--surf2);border:1px solid var(--border);border-radius:7px;padding:6px 10px;color:var(--text3);cursor:pointer;">Clear</button>'
+      +'</div>'
+    +'</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">'
+      +'<span class="apv-pill apv-pending">&#x1F550; '+pending+' Pending</span>'
+      +'<span class="apv-pill apv-approved">&#x2705; '+approved+' Approved</span>'
+      +(rejected?'<span class="apv-pill apv-rejected">&#x274C; '+rejected+' Rejected</span>':'')
+    +'</div>'
+    +rows;
 }
 
 function exportHistoryCSV(){
   const hist=getMyHistory();
   if(!hist.length){toast('No history to export','err');return;}
   const h=['Barcode','Asset Name','Category','Sub-Category','Location','Department',
-    'Status','Condition','Custodian','Serial','Registered By','Date Captured','Cloud Synced'];
-  const rows=hist.map(a=>[a.barcode,a.name,a.category||'',a.sub_category||'',
-    a.location||'',a.department||'',a.status||'',a.condition||'',
-    a.custodian||'',a.serial||'',a.registered_by||'',
+    'Status','Condition','Custodian','Serial','Notes',
+    'Approval Status','Approval Comment','Approved By','Approved At',
+    'GPS Latitude','GPS Longitude','GPS Location',
+    'Registered By','Date Captured','Cloud Synced'];
+  const rows=hist.map(a=>[
+    a.barcode, a.name, a.category||'', a.sub_category||'',
+    a.location||'', a.department||'', a.status||'', a.condition||'',
+    a.custodian||'', a.serial||'', a.notes||'',
+    a.approval_status||'pending', a.approval_comment||'',
+    a.approved_by||'', a.approved_at?new Date(a.approved_at).toLocaleString('en-GB'):'',
+    a.capture_lat||'', a.capture_lng||'', a.capture_location||'',
+    a.registered_by||'',
     a.created_at?new Date(a.created_at).toLocaleString('en-GB'):'',
     a.cloud?'Yes':'No'
-  ].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
-  const csv=[h.join(','),...rows].join('\n');
-  const blob=new Blob([csv],{type:'text/csv'});
+  ].map(v=>'\"'+String(v).replace(/"/g,'""')+'\"').join(','));
+  // BOM prefix ensures Excel opens with correct encoding
+  const csv='\uFEFF'+[h.join(','),...rows].join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a2=document.createElement('a');
   a2.href=url;
-  a2.download='CaptureHistory_'+new Date().toISOString().split('T')[0]+'.csv';
+  a2.download='CaptureHistory_'+(currentUser?currentUser.username:'field')+'_'+new Date().toISOString().split('T')[0]+'.csv';
+  document.body.appendChild(a2);
   a2.click();
+  document.body.removeChild(a2);
   URL.revokeObjectURL(url);
-  toast('History exported ✓','ok');
+  toast('History exported \u2713','ok');
+}
+
 }
 
 // ══════════════════════════════════════════════════════
@@ -1989,6 +2033,10 @@ async function saveAsset(){
     approval_status:'pending',
     company_id:currentUser.company_id||null,
     created_at:new Date().toISOString(),
+    // GPS coordinates at time of capture (from captureLoginGPS)
+    capture_lat:currentGPS.lat||'',
+    capture_lng:currentGPS.lng||'',
+    capture_location:currentGPS.label||'',
   };
 
   showSaving('Saving to database…');
@@ -2347,16 +2395,12 @@ function renderSpool(){
   }
   const canEdit=PERMS.edit_own_assets;
   const canDelete=PERMS.delete_own_assets;
-  const showValue=PERMS.view_asset_values;
 
   el.innerHTML='<div style="padding:8px 0 6px;font-size:10px;color:var(--text2);letter-spacing:.8px;text-transform:uppercase;">Session Captures</div>'
   +sessionAssets.map(function(a){
     const th=a.photos&&a.photos[0]
       ?'<img class="aud-th" src="'+a.photos[0]+'">'
       :'<div class="aud-th-ph">'+(CAT_EMOJI[a.category]||'📦')+'</div>';
-    const valLine=showValue&&a.value
-      ?'<div style="font-size:9px;color:var(--acc2);margin-top:1px;">₦'+parseInt(a.value).toLocaleString()+'</div>'
-      :'';
     const editBtn=canEdit
       ?'<button onclick="spoolEditAsset(\''+a.id+'\')" style="background:var(--surf2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:9px;cursor:pointer;font-family:Arial,Helvetica,sans-serif;margin-left:5px;">Edit</button>'
       :'';
@@ -2366,12 +2410,24 @@ function renderSpool(){
     const synced=a._synced
       ?'<span style="font-size:9px;color:var(--acc);margin-left:6px;">☁ Synced</span>'
       :'<span style="font-size:9px;color:var(--text3);margin-left:6px;">⏳ Pending sync</span>';
+    const apvS=a.approval_status||'pending';
+    const apvPill='<span class="apv-pill apv-'+apvS+'" style="margin-left:5px;">'
+      +(apvS==='approved'?'&#x2705; Approved':apvS==='rejected'?'&#x274C; Rejected':'&#x1F550; Pending')+'</span>';
+    const commentLine=(apvS==='rejected'||apvS==='approved')&&a.approval_comment
+      ?'<div style="font-size:9px;color:'+(apvS==='rejected'?'var(--acc3)':'var(--acc4)')
+        +';margin-top:2px;font-style:italic;">&#x1F4AC; '+a.approval_comment+'</div>'
+      :'';
+    const gpsLine=a.capture_location
+      ?'<div style="font-size:9px;color:var(--text3);margin-top:1px;">&#x1F4CD; '+a.capture_location+'</div>'
+      :'';
     return '<div class="aud-item" id="spool-item-'+a.id+'">'+th
       +'<div class="aud-inf">'
-      +'<div class="aud-nm">'+a.name+synced+'<span class="apv-pill apv-'+(a.approval_status||'pending')+'" style="margin-left:5px;">'+((a.approval_status||'pending')==='approved'?'&#x2705; Approved':(a.approval_status==='rejected'?'&#x274C; Rejected':'&#x1F550; Pending'))+'</span></div>'
+      +'<div class="aud-nm">'+a.name+synced+apvPill+'</div>'
       +'<div class="aud-bc">▦ '+a.barcode+' · '+(a.location||'—')+'</div>'
       +'<div style="font-size:9px;color:var(--text3);margin-top:1px;">'+(a.department||'—')+' · '+a.condition+'</div>'
-      +valLine+'</div>'
+      +commentLine
+      +gpsLine
+      +'</div>'
       +'<div style="display:flex;align-items:center;">'
       +'<span class="badge '+(getStatCls(a.status))+'" style="font-size:9px;padding:3px 7px;border-radius:5px;">'+a.status+'</span>'
       +editBtn+delBtn
@@ -2379,82 +2435,39 @@ function renderSpool(){
   }).join('');
 }
 
-// ── Edit own asset from spool (pre-sync only) ──
-function spoolEditAsset(id){
-  const a=sessionAssets.find(x=>x.id===id);
-  if(!a){toast('Asset not found','err');return;}
-  if(a._synced){toast('Cannot edit — already synced to database','err');return;}
-  // Open a quick-edit bottom sheet
-  const overlay=document.createElement('div');
-  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:90;display:flex;align-items:flex-end;';
-  overlay.innerHTML='<div style="width:100%;background:var(--surf);border-radius:22px 22px 0 0;padding:20px 20px 36px;max-height:85vh;overflow-y:auto;">'
-    +'<div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;"></div>'
-    +'<div style="font-family:\'Syne\',sans-serif;font-size:16px;font-weight:800;margin-bottom:14px;color:var(--text);">Edit — '+a.name+'</div>'
-    +'<div style="margin-bottom:12px;"><div class="fl">Status</div>'
-    +'<select class="fi" id="se-status">'+STATUS_OPTIONS.map(s=>`<option>${s}</option>`).join('')+'</select></div>'
-    +'<div style="margin-bottom:12px;"><div class="fl">Condition</div>'
-    +'<select class="fi" id="se-cond">'+CONDITION_OPTIONS.map(c=>`<option>${c}</option>`).join('')+'</select></div>'
-    +'<div style="margin-bottom:12px;"><div class="fl">Custodian</div>'
-    +'<input class="fi" type="text" id="se-cust" value="'+(a.custodian||'')+'"></div>'
-    +'<div style="margin-bottom:12px;"><div class="fl">Notes</div>'
-    +'<input class="fi" type="text" id="se-notes" value="'+(a.notes||'')+'" placeholder="Remarks…"></div>'
-    +'<div style="display:flex;gap:9px;margin-top:4px;">'
-    +'<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="flex:1;padding:13px;border-radius:12px;background:var(--surf2);color:var(--text);border:1px solid var(--border);font-family:Arial,Helvetica,sans-serif;font-size:12px;cursor:pointer;">Cancel</button>'
-    +'<button onclick="spoolSaveEdit(\''+id+'\')" style="flex:1;padding:13px;border-radius:12px;background:var(--acc);color:#0a1e38;border:none;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Save Changes</button>'
-    +'</div></div>';
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
-  setTimeout(()=>{
-    document.getElementById('se-status').value=a.status||(STATUS_OPTIONS[0]||'Active');
-    document.getElementById('se-cond').value=a.condition||(CONDITION_OPTIONS[1]||CONDITION_OPTIONS[0]||'Good');
-  },30);
-}
-
-function spoolSaveEdit(id){
-  const a=sessionAssets.find(x=>x.id===id);
-  if(!a)return;
-  a.status=document.getElementById('se-status').value;
-  a.condition=document.getElementById('se-cond').value;
-  a.custodian=document.getElementById('se-cust').value||a.custodian;
-  a.notes=document.getElementById('se-notes').value||a.notes;
-  // Also update in localStorage if saved there
-  try{
-    const stored=localStorage.getItem('atp_asset_'+id);
-    if(stored){const obj=JSON.parse(stored);Object.assign(obj,{status:a.status,condition:a.condition,custodian:a.custodian,notes:a.notes});localStorage.setItem('atp_asset_'+id,JSON.stringify(obj));}
-  }catch(e){}
-  document.querySelector('div[style*="position:fixed"][style*="z-index:90"]').remove();
-  toast('Changes saved','ok');
-  renderSpool();
-}
-
-// ── Delete own asset from spool (pre-sync only) ──
-function spoolDeleteAsset(id){
-  const a=sessionAssets.find(x=>x.id===id);
-  if(!a)return;
-  if(a._synced){toast('Cannot delete — already synced to database. Contact admin.','err');return;}
-  if(!confirm('Delete "'+a.name+'" from your session? This cannot be undone.')){return;}
-  // Remove from session
-  sessionAssets=sessionAssets.filter(x=>x.id!==id);
-  // Remove from localStorage
-  try{
-    localStorage.removeItem('atp_asset_'+id);
-    const idx=JSON.parse(localStorage.getItem('atp_index')||'[]').filter(x=>x!==id);
-    localStorage.setItem('atp_index',JSON.stringify(idx));
-  }catch(e){}
-  toast('Asset removed from your session','ok');
-  renderSpool();
-  refreshDash();
-}
-
 function spoolCSV(){
   if(!sessionAssets.length){toast('No captures in this session','err');return;}
-  const h=['Barcode','Name','Category','Sub-Category','Location','Department','Status','Condition','Value','Custodian','Serial','Registered By','Date'];
-  const rows=sessionAssets.map(a=>[a.barcode,a.name,a.category,a.sub_category||'',a.location,a.department,a.status,a.condition,a.value,a.custodian,a.serial,a.registered_by,new Date(a.created_at).toLocaleDateString('en-GB')].map(v=>'"'+(v||'')+'"').join(','));
-  const csv=[h.join(','),...rows].join('\n');
-  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  const lnk=document.createElement('a');lnk.href=url;lnk.download='Spool_'+currentUser.username+'_'+new Date().toISOString().split('T')[0]+'.csv';lnk.click();
-  toast('Spool exported!','ok');
+  const h=[
+    'Barcode','Asset Name','Category','Sub-Category','Location','Department',
+    'Status','Condition','Custodian','Serial','Notes',
+    'Approval Status','Approval Comment','Approved By','Approved At',
+    'GPS Latitude','GPS Longitude','GPS Location',
+    'Registered By','Date Captured','Cloud Synced'
+  ];
+  const rows=sessionAssets.map(a=>[
+    a.barcode, a.name, a.category||'', a.sub_category||'',
+    a.location||'', a.department||'', a.status||'', a.condition||'',
+    a.custodian||'', a.serial||'', a.notes||'',
+    a.approval_status||'pending', a.approval_comment||'',
+    a.approved_by||'', a.approved_at?new Date(a.approved_at).toLocaleString('en-GB'):'',
+    a.capture_lat||'', a.capture_lng||'', a.capture_location||'',
+    a.registered_by||'',
+    a.created_at?new Date(a.created_at).toLocaleString('en-GB'):'',
+    a._synced?'Yes':'No'
+  ].map(v=>'\"'+String(v||'').replace(/"/g,'""')+'\"').join(','));
+  // BOM ensures correct encoding when opened in Excel
+  const csv='\uFEFF'+[h.join(','),...rows].join('\n');
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  const lnk=document.createElement('a');
+  lnk.href=url;
+  lnk.download='Spool_'+currentUser.username+'_'+new Date().toISOString().split('T')[0]+'.csv';
+  document.body.appendChild(lnk);
+  lnk.click();
+  document.body.removeChild(lnk);
+  URL.revokeObjectURL(url);
+  toast('Spool exported \u2713','ok');
 }
+
 
 function spoolShare(){
   const text=`AssetTrackPro Spool — ${currentUser.name||currentUser.username}\n${new Date().toLocaleDateString('en-GB')}\nRegistered: ${sessionAssets.length} assets\nAudited: ${sessionAudit.length}\n\n`+
