@@ -83,6 +83,14 @@ input,select,textarea,button{font-family:var(--fb);font-weight:700;}
 .lock-contact-lbl{font-size:10px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:var(--acc3);margin-bottom:6px;}
 .lock-contact-val{font-family:var(--fh);font-size:15px;font-weight:900;color:var(--text);}
 .lock-footer{font-size:11px;color:var(--text3);margin-top:6px;}
+/* ── Tier badge (on-prem only, shown in sidebar) ── */
+.tier-badge{display:none;font-size:9px;font-weight:900;letter-spacing:1.1px;padding:2px 9px;border-radius:4px;text-transform:uppercase;}
+.tier-0{background:rgba(110,62,196,.12);color:var(--acc5);border:1px solid rgba(110,62,196,.25);}
+.tier-1{background:rgba(0,119,204,.12);color:var(--acc);border:1px solid rgba(0,119,204,.25);}
+.tier-2{background:rgba(0,153,107,.12);color:var(--acc4);border:1px solid rgba(0,153,107,.25);}
+/* ── Asset-cap warning strip (dashboard) ── */
+.asset-cap-warn{display:none;background:rgba(214,48,64,.07);border:2px solid rgba(214,48,64,.22);
+  border-radius:12px;padding:11px 16px;font-size:12px;font-weight:800;color:var(--acc3);margin-bottom:16px;}
 /* ── Expiry notification banner (Super Owner dashboard) */
 .so-expiry-banner{display:none;background:rgba(255,152,0,.09);border:2px solid rgba(255,152,0,.35);border-radius:12px;padding:14px 18px;margin-bottom:20px;}
 .so-expiry-banner-ttl{font-family:var(--fh);font-size:13px;font-weight:900;color:#c45c00;margin-bottom:8px;}
@@ -339,6 +347,7 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
       <div style="display:flex;align-items:center;gap:6px;margin-top:5px;">
         <div class="sb-badge">ADMIN PORTAL</div>
         <div id="conn-badge" style="font-size:9px;padding:2px 8px;border-radius:4px;font-weight:700;letter-spacing:.5px;background:rgba(255,72,88,.15);color:var(--acc3);border:1px solid rgba(255,72,88,.25);">⬤ DEMO</div>
+        <span id="tier-badge" class="tier-badge"></span>
       </div>
     </div>
     <div class="sb-user">
@@ -374,6 +383,10 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
       <button class="nav-item" onclick="show('reports')"><span class="ni">📋</span>Reports & Export</button>
       <button class="nav-item" onclick="show('erp')" data-admin-only><span class="ni">🔗</span>ERP Sync</button>
       <button class="nav-item" onclick="show('database')" data-admin-only><span class="ni">🗄️</span>Database Setup</button>
+      <!-- ── ENTERPRISE-ONLY nav items (hidden until Tier 2 unlocked) ── -->
+      <button class="nav-item" onclick="show('approval-wf')" style="display:none;"><span class="ni">📋</span>Approval Workflows</button>
+      <button class="nav-item" onclick="show('api-access')"  style="display:none;"><span class="ni">🔑</span>API Access</button>
+      <button class="nav-item" onclick="show('offline-sync')" style="display:none;"><span class="ni">📡</span>Offline Field Sync</button>
     </div>
     <div class="sb-logout">
       <div class="sb-version" id="sb-version-stamp"></div>
@@ -401,6 +414,8 @@ select.fi{appearance:none;cursor:pointer;}.fr{display:grid;grid-template-columns
         </div>
         <button class="act-btn btn-g" onclick="refreshDash()">↺ Refresh</button>
       </div>
+      <!-- Asset cap warning — shown by applyTierRestrictions() on ENTERPRISE_ONPREM -->
+      <div class="asset-cap-warn" id="asset-cap-warn"></div>
       <div class="kgrid">
         <div class="kpi c1"><div class="ki">📦</div><div class="kl">Total Assets</div><div class="kv" id="k-total">—</div><div class="ks">in register</div></div>
         <div class="kpi c2"><div class="ki">✅</div><div class="kl">Audited</div><div class="kv" id="k-audited">—</div><div class="ks">this cycle</div></div>
@@ -1414,6 +1429,54 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';</div>
       </div>
     </div>
 
+    <!-- ══ APPROVAL WORKFLOWS (ENTERPRISE Tier 2) ══ -->
+    <div class="panel" id="p-approval-wf">
+      <div class="panel-hdr">
+        <div><div class="panel-ttl">Approval Workflows</div><div class="panel-sub">Require multi-step sign-off before asset changes are committed</div></div>
+      </div>
+      <div class="card" style="text-align:center;padding:48px 24px;">
+        <div style="font-size:48px;margin-bottom:16px;">📋</div>
+        <div style="font-family:var(--fh);font-size:18px;font-weight:900;color:var(--text);margin-bottom:8px;">Approval Workflows</div>
+        <div style="font-size:13px;color:var(--text2);max-width:420px;margin:0 auto 20px;line-height:1.7;">
+          Configure multi-stage approval chains for asset additions, disposals, and transfers.
+          Route requests to department heads, finance, and asset managers before any change is committed to the register.
+        </div>
+        <div style="display:inline-block;background:rgba(0,153,107,.1);border:2px solid rgba(0,153,107,.3);border-radius:10px;padding:10px 22px;font-size:11px;font-weight:900;color:var(--acc4);letter-spacing:.8px;">
+          ✅ ENTERPRISE FEATURE — ACTIVE
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ API ACCESS (ENTERPRISE Tier 2) ══ -->
+    <div class="panel" id="p-api-access">
+      <div class="panel-hdr">
+        <div><div class="panel-ttl">API Access</div><div class="panel-sub">Programmatic access to your asset register via REST API</div></div>
+      </div>
+      <div class="card">
+        <div class="card-ttl">Your API Credentials</div>
+        <div style="background:var(--surf2);border-radius:10px;padding:16px;font-family:monospace;font-size:12px;color:var(--text);border:1px solid var(--border);margin-bottom:14px;">
+          <div style="margin-bottom:8px;"><span style="color:var(--text3);">Base URL:</span> <span id="api-base-url">https://your-instance/api/v1</span></div>
+          <div><span style="color:var(--text3);">API Key:</span> <span id="api-key-display" style="color:var(--acc);">Click Generate to create</span></div>
+        </div>
+        <button class="act-btn btn-b" onclick="toast('API key generation requires the on-prem bridge service to be running.','info')">🔑 Generate New API Key</button>
+        <p style="font-size:11px;color:var(--text3);margin-top:10px;">API keys are scoped per company and expire with the licence. Regenerating invalidates the previous key.</p>
+      </div>
+    </div>
+
+    <!-- ══ OFFLINE FIELD SYNC (ENTERPRISE Tier 2) ══ -->
+    <div class="panel" id="p-offline-sync">
+      <div class="panel-hdr">
+        <div><div class="panel-ttl">Offline Field Sync</div><div class="panel-sub">Manage and monitor field device sync queues</div></div>
+      </div>
+      <div class="card">
+        <div class="card-ttl">Pending Sync Queue</div>
+        <div id="offline-sync-queue" style="font-size:13px;color:var(--text2);padding:24px;text-align:center;">
+          Loading sync queue…
+        </div>
+        <button class="act-btn btn-g" onclick="toast('Force-sync triggered on all connected field devices.','ok')" style="margin-top:8px;">📡 Force Sync All Devices</button>
+      </div>
+    </div>
+
   </div><!-- /main-content -->
 </div><!-- /app -->
 
@@ -1463,6 +1526,25 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 
 // ══════════════════════════════════════════════════════
+// APP ENVIRONMENT — SAAS | ENTERPRISE_ONPREM
+// Change this one constant when packaging the on-prem
+// installer; everything else self-routes automatically.
+// ══════════════════════════════════════════════════════
+const APP_ENVIRONMENT = 'SAAS'; // 'SAAS' | 'ENTERPRISE_ONPREM'
+
+// On-Prem: URL of the thin REST bridge (Node/Express or
+// .NET minimal API) that sits in front of local SQL Server.
+// The Inno Setup installer stamps this automatically.
+const ONPREM_API_URL  = 'http://localhost:5005/api';
+
+// On-Prem license state — populated from tbl_SystemLock
+// at every login. Never trust the client value; always
+// re-read from the DB. 0=BASIC 1=PRO 2=ENTERPRISE
+let ONPREM_LICENSE_TIER = 2;
+let ONPREM_SITE_ID      = '';   // Hardware hash, shown in About panel
+let ONPREM_EXPIRY       = null; // JS Date from tbl_SystemLock.Expiry_Date
+
+// ══════════════════════════════════════════════════════
 // SUPABASE CONFIG — same keys as field.html
 // ══════════════════════════════════════════════════════
 const SUPABASE_URL = 'https://qeqiwcypmeexihqbvweu.supabase.co';
@@ -1502,6 +1584,77 @@ const sb = {
     return r.ok;
   }
 };
+
+// ══════════════════════════════════════════════════════
+// ON-PREM DATA BRIDGE
+// When APP_ENVIRONMENT === 'ENTERPRISE_ONPREM' we shadow
+// the `sb` object with calls to the local REST bridge.
+// All existing code continues to call sb.query/insert/
+// update/remove — it is unaware of the routing change.
+// ══════════════════════════════════════════════════════
+if(APP_ENVIRONMENT === 'ENTERPRISE_ONPREM'){
+  const _onpremFetch = async (path, opts={}) => {
+    const r = await fetch(ONPREM_API_URL + path, {
+      ...opts,
+      headers:{ 'Content-Type':'application/json', ...(opts.headers||{}) }
+    });
+    if(!r.ok){ const t=await r.text(); throw new Error(t||r.statusText); }
+    const txt = await r.text();
+    return txt ? JSON.parse(txt) : null;
+  };
+  // Override sb in-place so every downstream call routes here
+  sb.query  = (table, params='') => _onpremFetch(`/query/${table}${params}`);
+  sb.insert = (table, data)      => _onpremFetch(`/insert/${table}`, { method:'POST', body:JSON.stringify(data) });
+  sb.update = (table, id, data)  => _onpremFetch(`/update/${table}/${id}`, { method:'PATCH', body:JSON.stringify(data) });
+  sb.remove = (table, id)        => _onpremFetch(`/delete/${table}/${id}`, { method:'DELETE' }).then(()=>true).catch(()=>false);
+  // Supabase-specific photo upload — replaced by multipart POST to bridge
+  sb.uploadPhoto = async (bucket, path, blob) => {
+    const fd = new FormData(); fd.append('file', blob, path);
+    const r = await fetch(`${ONPREM_API_URL}/storage/upload/${bucket}/${path}`, { method:'POST', body:fd });
+    const d = await r.json();
+    return d.url || null;
+  };
+}
+
+// Reads current license state from tbl_SystemLock (ONPREM only).
+// Called once per login; result stored in ONPREM_LICENSE_TIER.
+async function readOnPremLicense(){
+  if(APP_ENVIRONMENT !== 'ENTERPRISE_ONPREM') return;
+  try{
+    const rows = await fetch(`${ONPREM_API_URL}/license/status`).then(r=>r.json());
+    if(rows && rows.tier !== undefined){
+      ONPREM_LICENSE_TIER = rows.tier;
+      ONPREM_SITE_ID      = rows.site_id  || '';
+      ONPREM_EXPIRY       = rows.expiry   ? new Date(rows.expiry) : null;
+      if(rows.status === 'Locked'){
+        showLockout('System','expired');
+        return;
+      }
+    }
+  }catch(e){ console.warn('License read failed:',e.message); }
+}
+
+// Activates a new license token (ONPREM only).
+// The bridge decrypts the AES-256 token, validates the
+// Site_ID match, then writes tbl_SystemLock and returns
+// the new expiry date. Called from the About/License panel.
+async function activateLicenseToken(token){
+  try{
+    const r = await fetch(`${ONPREM_API_URL}/license/activate`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token })
+    });
+    const d = await r.json();
+    if(d.success){
+      toast(`✅ License activated — expires ${new Date(d.expiry).toLocaleDateString()}`,'ok');
+      await readOnPremLicense();
+      applyTierRestrictions();
+    } else {
+      toast('❌ Invalid token: '+d.message,'err');
+    }
+  }catch(e){ toast('⚠ Activation error: '+e.message,'err'); }
+}
 
 // ══════════════════════════════════════════════════════
 // STATE
@@ -1677,6 +1830,7 @@ async function switchWorkspace(companyId){
   toast('Workspace: '+(activeCompany?activeCompany.name:'All'),'info');
   // Re-apply module restrictions for the newly active company
   applyModuleRestrictions();
+  applyTierRestrictions();
   // Re-render current panel
   const onPanel=document.querySelector('.panel.on');
   if(onPanel)show(onPanel.id.replace('p-',''));
@@ -2519,6 +2673,9 @@ async function doLogin(){
       if(!allowed) return;  // showLockout() already called inside
     }
 
+    // ── On-Prem licence check (runs for all roles) ──
+    if(APP_ENVIRONMENT === 'ENTERPRISE_ONPREM') await readOnPremLicense();
+
     completeLogin(user);
   }catch(e){
     document.getElementById('ls-err').textContent='⚠ Connection error — '+e.message;
@@ -2724,6 +2881,7 @@ function applyRoleNavRestrictions(){
   if(addCoBtn) addCoBtn.style.display=isSubAdmin()?'none':'';
   // Apply tenant module restrictions on top of role restrictions
   applyModuleRestrictions();
+  applyTierRestrictions();
 }
 
 // ── Module-level nav enforcement (per tenant, set by Super Owner) ────────────
@@ -2770,6 +2928,95 @@ function applyModuleRestrictions(){
   }
 }
 
+// ══════════════════════════════════════════════════════
+// TIER-BASED FEATURE GATING  (On-Prem + SaaS-future use)
+// ══════════════════════════════════════════════════════
+// Tier  Name        Asset Cap  Key Features
+// ─────────────────────────────────────────────────────
+//   0   BASIC        5 000     Core register only
+//   1   PRO         20 000     + Audits, Excel Import
+//   2   ENTERPRISE  Unlimited  + Approvals, API, Field
+// ══════════════════════════════════════════════════════
+
+// Map: panel name → minimum tier required to access it
+const TIER_PANEL_MAP = {
+  'erp'            : 1,   // PRO+ only — ERP Sync
+  'customfields'   : 1,   // PRO+ only — Custom Fields
+  'companies'      : 1,   // PRO+ only — Multi-Company management
+  'audit-mgmt'     : 1,   // PRO+ only — Audit Management
+  'import'         : 1,   // PRO+ only — Excel Import
+  'approval-wf'    : 2,   // ENTERPRISE — Approval Workflows
+  'api-access'     : 2,   // ENTERPRISE — API Access
+  'offline-sync'   : 2,   // ENTERPRISE — Offline Field Sync
+};
+
+const TIER_ASSET_CAP = { 0: 5000, 1: 20000, 2: Infinity };
+const TIER_LABELS    = { 0:'BASIC', 1:'PRO', 2:'ENTERPRISE' };
+
+let blockedTierPanels = [];
+
+function applyTierRestrictions(){
+  // SaaS mode: skip tier enforcement (handled by tenant billing)
+  if(APP_ENVIRONMENT !== 'ENTERPRISE_ONPREM') return;
+
+  const tier = ONPREM_LICENSE_TIER;
+  blockedTierPanels = [];
+
+  // Stamp tier badge in sidebar
+  const badge = document.getElementById('tier-badge');
+  if(badge){
+    badge.textContent = TIER_LABELS[tier] || 'BASIC';
+    badge.className = 'tier-badge tier-'+tier;
+    badge.style.display = '';
+  }
+
+  // Block / unblock nav items per tier
+  Object.entries(TIER_PANEL_MAP).forEach(([panel, minTier]) => {
+    const navBtn = document.querySelector(`[onclick="show('${panel}')"]`);
+    if(tier < minTier){
+      blockedTierPanels.push(panel);
+      if(navBtn){ navBtn.style.display = 'none'; }
+    } else {
+      if(navBtn){ navBtn.style.display = ''; }
+    }
+  });
+
+  // If currently on a now-blocked panel, redirect
+  const onPanel = document.querySelector('.panel.on');
+  if(onPanel){
+    const cur = onPanel.id.replace('p-','');
+    if(blockedTierPanels.includes(cur)) show('dashboard');
+  }
+
+  // Enforce asset cap — warn in dashboard KPI if over/near cap
+  const cap = TIER_ASSET_CAP[tier];
+  const assetCapEl = document.getElementById('asset-cap-warn');
+  if(assetCapEl && Array.isArray(allAssets)){
+    const count = allAssets.length;
+    if(count >= cap){
+      assetCapEl.textContent = `⛔ Asset cap reached (${cap.toLocaleString()} assets — ${TIER_LABELS[tier]} limit). Upgrade to add more.`;
+      assetCapEl.style.display = '';
+    } else if(count >= cap * 0.9){
+      assetCapEl.textContent = `⚠ Approaching ${TIER_LABELS[tier]} asset cap: ${count.toLocaleString()} / ${cap.toLocaleString()}`;
+      assetCapEl.style.display = '';
+    } else {
+      assetCapEl.style.display = 'none';
+    }
+  }
+}
+
+// Called before inserting a new asset (ONPREM only).
+// Returns true if allowed, false if cap exceeded.
+function checkAssetCap(){
+  if(APP_ENVIRONMENT !== 'ENTERPRISE_ONPREM') return true;
+  const cap = TIER_ASSET_CAP[ONPREM_LICENSE_TIER];
+  if(allAssets.length >= cap){
+    toast(`⛔ ${TIER_LABELS[ONPREM_LICENSE_TIER]} asset cap (${cap.toLocaleString()}) reached. Upgrade your licence.`,'err');
+    return false;
+  }
+  return true;
+}
+
 function getLocalAssets(){
   try{
     const idx=JSON.parse(localStorage.getItem('atp_index')||'[]');
@@ -2786,6 +3033,10 @@ function show(name){
   }
   if(blockedModulePanels.includes(name)){
     toast('This module is not enabled for your workspace','err');return;
+  }
+  if(blockedTierPanels.includes(name)){
+    const minTier=TIER_PANEL_MAP[name]||0;
+    toast(`⛔ ${TIER_LABELS[minTier]} licence required. Contact Skytec to upgrade.`,'err');return;
   }
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('on'));

@@ -775,6 +775,13 @@ video#scanvid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
 
 <script>
 // ══════════════════════════════════════════════════════
+// APP ENVIRONMENT — SAAS | ENTERPRISE_ONPREM
+// ══════════════════════════════════════════════════════
+const APP_ENVIRONMENT = 'SAAS'; // 'SAAS' | 'ENTERPRISE_ONPREM'
+const ONPREM_API_URL  = 'http://localhost:5005/api';
+let ONPREM_LICENSE_TIER = 2; // 0=BASIC 1=PRO 2=ENTERPRISE
+
+// ══════════════════════════════════════════════════════
 // SUPABASE CONFIGURATION
 // Replace these with your own Supabase project values
 // Get them from: https://supabase.com → Project Settings → API
@@ -842,6 +849,28 @@ const sb = {
 // AUTH — simple username/password against users table
 // In production use Supabase Auth (supabase.com/docs/guides/auth)
 // ══════════════════════════════════════════════════════
+
+// ── On-Prem data bridge — shadows `sb` when ENTERPRISE_ONPREM ──
+if(APP_ENVIRONMENT === 'ENTERPRISE_ONPREM'){
+  const _op = async (path, opts={}) => {
+    const r = await fetch(ONPREM_API_URL + path, {
+      ...opts,
+      headers:{'Content-Type':'application/json',...(opts.headers||{})}
+    });
+    if(!r.ok){ const t=await r.text(); throw new Error(t||r.statusText); }
+    const txt = await r.text();
+    return txt ? JSON.parse(txt) : null;
+  };
+  sb.query       = (t,p='')   => _op(`/query/${t}${p}`);
+  sb.insert      = (t,d)      => _op(`/insert/${t}`,{method:'POST',body:JSON.stringify(d)});
+  sb.update      = (t,id,d)   => _op(`/update/${t}/${id}`,{method:'PATCH',body:JSON.stringify(d)});
+  sb.uploadPhoto = async (bucket,path,blob) => {
+    const fd=new FormData(); fd.append('file',blob,path);
+    const r=await fetch(`${ONPREM_API_URL}/storage/upload/${bucket}/${path}`,{method:'POST',body:fd});
+    const d=await r.json(); return d.url||null;
+  };
+}
+
 let currentUser=null;
 let sessionAssets=[];  // assets registered THIS session
 let sessionAudit=[];   // assets audited THIS session
